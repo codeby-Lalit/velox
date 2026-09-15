@@ -38,7 +38,9 @@ _ROMAN_RE = re.compile(
 )
 
 _PAREN_NUMBER_RE = re.compile(
-    r"^(?:\((?P<num>\d+[a-z]?)\)|\[(?P<num>\d+[a-z]?)\])\s+(?P<title>.+)$"
+    r"^(?P<open>\(|\[)(?P<num>\d+[a-z]?)(?P=open)"
+    r"\s+(?P<title>.+)$",
+    re.IGNORECASE,
 )
 
 _CAPTION_RE = re.compile(
@@ -253,7 +255,7 @@ class HeadingClassifier:
         if signals <= 0.19:
             return Classification(
                 element_type=C.E_PARAGRAPH,
-                confidence=0.55,
+                confidence=1.0,
                 reason_codes=["no_heading_signals"],
                 source_index=paragraph.index,
             )
@@ -327,6 +329,7 @@ def classify_document(model: DocumentModel) -> StructureMap:
     structure = StructureMap()
     seen_heading = False
     prev_kind: str | None = None
+    current_header = ""
     caption_counts: dict[str, int] = {}
 
     # Map from paragraph index -> next body element info
@@ -348,7 +351,7 @@ def classify_document(model: DocumentModel) -> StructureMap:
                 reason_codes=["empty"],
                 source_index=paragraph.index,
             )
-            structure.add(paragraph_c)
+            structure.add(("paragraph", paragraph.index), paragraph_c)
             prev_kind = C.E_PARAGRAPH
             continue
 
@@ -372,55 +375,82 @@ def classify_document(model: DocumentModel) -> StructureMap:
                 caption.reason_codes.append("adjacent_table")
             elif nxt and nxt[0] == "table":
                 caption.element_type = C.E_TABLE_CAPTION
-            structure.add(caption)
+            structure.add(("paragraph", paragraph.index), caption)
             prev_kind = caption.element_type
             continue
 
         # Title candidate: very first body paragraph
-        if paragraph.index == model.body_order[0][1] and not seen_heading:
+        if (
+            first_body_is_paragraph
+            and paragraph.index == first_body[1]
+            and not seen_heading
+        ):
             if _is_first_paragraph_candidate(paragraph):
-                signals = 0.55
-                codes = ["title_position", "short_line"]
-                if stats.strictly_larger_than_body(paragraph):
-                    signals += 0.20
-                    codes.append("large_font")
-                if paragraph.runs and all(
-                    r.bold for r in paragraph.runs if r.text.strip()
-                ):
-                    signals += 0.10
-                    codes.append("bold")
-                structure.add(
-                    Classification(
-                        element_type=C.E_TITLE,
-                        confidence=min(0.98, round(signals, 4)),
-                        reason_codes=codes,
-                        source_index=paragraph.index,
-                    )
+                is_large = stats.strictly_larger_than_body(paragraph)
+                is_bold = bool(
+                    paragraph.runs
+                    and all(r.bold for r in paragraph.runs if r.text.strip())
                 )
-                prev_kind = C.E_TITLE
-                continue
+                is_caps = bool(
+                    paragraph.runs
+                    and any(r.all_caps for r in paragraph.runs if r.text)
+                ) or bool(paragraph.text == paragraph.text.upper() and len(paragraph.text) > 3)
+                if not (is_large or is_bold or is_caps):
+                    pass  # plain first paragraph -> fall through to heading detection
+                else:
+                    signals = 0.62
+                    codes = ["title_position", "short_line"]
+                    if is_large:
+                        signals += 0.20
+                        codes.append("large_font")
+                    if is_bold:
+                        signals += 0.10
+                        codes.append("bold")
+                    if is_caps:
+                        signals += 0.05
+                        codes.append("all_caps")
+                    structure.add(
+                        ("paragraph", paragraph.index),
+                        Classification(
+                            element_type=C.E_TITLE,
+                            confidence=min(0.98, round(signals, 4)),
+                            reason_codes=codes,
+                            source_index=paragraph.index,
+                        ),
+                    )
+                    prev_kind = C.E_TITLE
+                    continue
 
         cls = heading_clf.classify(paragraph, prev_kind, seen_heading)
         if cls is None:
             cls = Classification(
                 element_type=C.E_PARAGRAPH,
-                confidence=0.55,
+                confidence=1.0,
                 reason_codes=["empty_or_whitespace"],
+                source_index=paragraph.index,
+            )
+        if _is_references_context(cls, paragraph, current_header):
+            cls = Classification(
+                element_type=C.E_PARAGRAPH,
+                confidence=0.95,
+                reason_codes=["reference_list_item", "references_context"],
                 source_index=paragraph.index,
             )
         if cls.is_heading:
             seen_heading = True
-        structure.add(cls)
+            current_header = paragraph.text
+        structure.add(("paragraph", paragraph.index), cls)
         prev_kind = cls.element_type
 
     for table_index in sorted(table_kinds):
         structure.add(
+            ("table", table_index),
             Classification(
                 element_type=C.E_TABLE,
                 confidence=1.0,
                 reason_codes=["xml_table_element"],
                 source_index=table_index,
-            )
+            ),
         )
 
     return structure
@@ -431,3 +461,25 @@ def _caption_number(subtype: str | None) -> int:
         return -1
     m = re.search(r"\d+", subtype)
     return int(m.group(0)) if m else -1
+
+
+_REFERENCES_HEADING_RE = re.compile(
+    r"references|bibliograph|works\s+cited|(^|\s)notes\b", re.IGNORECASE
+)
+
+
+def _is_numbered_flat(text: str) -> bool:
+    return _NUMBER_FLAT_RE.match(text.strip()) is not None
+
+
+def _is_references_context(
+    cls: Classification,
+    paragraph: ParagraphInfo,
+    current_header: str,
+) -> bool:
+    """Flat numbered items under a References/Bibliography heading are list items."""
+    if cls.element_type not in C.HEADING_KINDS:
+        return False
+    if not _REFERENCES_HEADING_RE.search(current_header):
+        return False
+    return _is_numbered_flat(paragraph.text)

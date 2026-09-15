@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit Networks — Offline Manuscript Processor</title>
+<style>
+:root { --bg:#f6f8fa; --card:#fff; --line:#d0d7de; --ink:#1f2328; --accent:#0969da; --ok:#1a7f37; --warn:#9a6700; --err:#b41c1c; }
+* { box-sizing: border-box; }
+body { font-family:'Segoe UI',Arial,sans-serif; background:var(--bg); color:var(--ink); margin:0; padding:24px; }
+main { max-width:980px; margin:0 auto; }
+h1 { border-bottom:2px solid var(--accent); padding-bottom:8px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px 20px; margin:16px 0; }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+label { font-weight:600; display:block; margin-bottom:6px; }
+input[type=file], select, button { font-size:1rem; padding:8px 10px; border:1px solid var(--line); border-radius:6px; }
+button { background:var(--accent); color:#fff; border:none; cursor:pointer; }
+button:disabled { opacity:.5; cursor:not-allowed; }
+#status { margin:12px 0; font-weight:600; }
+pre { background:#0d1117; color:#e6edf3; padding:12px; border-radius:6px; overflow:auto; max-height:320px; }
+table { border-collapse:collapse; width:100%; font-size:.9rem; }
+th,td { border:1px solid var(--line); padding:5px 8px; text-align:left; }
+.width-50 { width:50%; }
+.hidden { display:none; }
+.badge { padding:3px 8px; border-radius:10px; font-weight:700; font-size:.85rem; }
+.pass { background:#dafbe1; color:var(--ok); }
+.fail { background:#ffebe9; color:var(--err); }
+.dim { color:#57606a; font-size:.85rem; }
+</style>
+</head>
+<body>
+<main>
+<h1>Circuit Networks — Offline Manuscript Processor</h1>
+<p class="dim">All processing is 100% local. No internet, no cloud, no AI.</p>
+
+<div class="grid">
+  <div class="card">
+    <h2>Step 1 · Import</h2>
+    <label for="file">Manuscript (.docx)</label>
+    <input type="file" id="file" accept=".docx" class="width-50"><br><br>
+    <label for="profile">Publisher Profile</label>
+    <select id="profile" class="width-50"></select><br><br>
+    <button id="process">Analyze &amp; Format</button>
+    <p id="status"></p>
+  </div>
+
+  <div class="card">
+    <h2>Step 2 · Result</h2>
+    <div id="integrity" class="hidden"></div>
+    <div id="downloads" class="hidden"></div>
+  </div>
+</div>
+
+<div class="card hidden" id="structureCard">
+  <h2>Detected Structure</h2>
+  <table id="structureTable"><thead><tr><th>Element</th><th>Type</th><th>Confidence</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div class="card hidden" id="issuesCard">
+  <h2>Preflight Issues</h2>
+  <table id="issuesTable"><thead><tr><th>Code</th><th>Severity</th><th>Message</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div class="card hidden" id="reviewCard">
+  <h2>Review Queue</h2>
+  <table id="reviewTable"><thead><tr><th>#</th><th>Type</th><th>Conf</th><th>Text</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div class="card hidden" id="classCard">
+  <h2>Classification Details (explainable)</h2>
+  <pre id="classPre"></pre>
+</div>
+
+<script src="app.js"></script>
+</main>
+</body>
+</html>

@@ -1,0 +1,93 @@
+{
+  "id": "default",
+  "name": "Default Publisher",
+  "description": "Generic A4 manuscript profile: serif body, structured headings, justified text.",
+  "schema_version": 1,
+  "thresholds": {
+    "auto": 0.9,
+    "review": 0.7
+  },
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 2.54,
+      "bottom": 2.54,
+      "left": 3.18,
+      "right": 3.18
+    }
+  },
+  "fonts": {
+    "body": {
+      "name": "Times New Roman",
+      "size": 12.0,
+      "bold": false,
+      "italic": false
+    },
+    "caption": {
+      "name": "Times New Roman",
+      "size": 10.0,
+      "bold": false,
+      "italic": true
+    }
+  },
+  "body": {
+    "alignment": "justify",
+    "spacing": {
+      "before": 0.0,
+      "after": 6.0,
+      "line": 1.5,
+      "first_line_indent": 0.0
+    }
+  },
+  "captions": {
+    "alignment": "left",
+    "spacing": {
+      "before": 6.0,
+      "after": 6.0,
+      "line": 1.15
+    }
+  },
+  "headings": {
+    "h0": {
+      "alignment": "center",
+      "font": { "name": "Times New Roman", "size": 18.0, "bold": true },
+      "spacing": { "before": 0, "after": 12.0, "line": 1.15 },
+      "keep_with_next": true
+    },
+    "h1": {
+      "alignment": "left",
+      "font": { "name": "Times New Roman", "size": 16.0, "bold": true },
+      "spacing": { "before": 18.0, "after": 8.0, "line": 1.15 },
+      "keep_with_next": true
+    },
+    "h2": {
+      "alignment": "left",
+      "font": { "name": "Times New Roman", "size": 14.0, "bold": true },
+      "spacing": { "before": 14.0, "after": 6.0, "line": 1.15 },
+      "keep_with_next": true
+    },
+    "h3": {
+      "alignment": "left",
+      "font": { "name": "Times New Roman", "size": 12.0, "bold": true, "italic": true },
+      "spacing": { "before": 12.0, "after": 6.0, "line": 1.15 },
+      "keep_with_next": true
+    },
+    "h4": {
+      "alignment": "left",
+      "font": { "name": "Times New Roman", "size": 12.0, "bold": true },
+      "spacing": { "before": 12.0, "after": 6.0, "line": 1.15 },
+      "keep_with_next": true
+    }
+  },
+  "tables": {
+    "style": "Table Grid",
+    "header_bold": true,
+    "cell_margins": {
+      "top": 0.05,
+      "bottom": 0.05,
+      "left": 0.1,
+      "right": 0.1
+    }
+  }
+}

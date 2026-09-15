@@ -235,3 +235,24 @@ The implementation must continue to satisfy:
 - 400+ page scalability
 - preflight validation
 - post-format verification
+
+## R21 — Offline Packaging (Desktop Standalone)
+
+The final deliverable of this project MUST be a self-contained offline package,
+not a server-dependent deployment. The primary packaging target is a
+**desktop offline application** — a standalone executable bundle
+(e.g. PyInstaller) for Windows/macOS/Linux that runs the full manuscript
+formatting pipeline locally.
+
+A mobile **APK/AAB** or an offline **PWA** may be considered only as a
+secondary alternative after the desktop bundle works.
+
+The packaging MUST enforce:
+- complete offline processing with zero network/telemetry calls (R1)
+- no generative-AI/LLM components (R2)
+- content integrity verification shipped with the user (R4)
+- deterministic, reproducible results on the same device (R14)
+- local storage of publisher profiles and audit reports (R7 / R16)
+
+The packaging pipeline itself is part of the Definition of Done. The produced
+artifact must run without a development machine, build tools or internet.

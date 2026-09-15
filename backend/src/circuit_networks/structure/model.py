@@ -45,15 +45,25 @@ class Classification:
 
 @dataclass
 class StructureMap:
-    """Ordered map of body element -> classification."""
+    """Ordered map of body element -> classification.
 
-    classifications: dict[int, Classification] = field(default_factory=dict)
+    Keys are ``("paragraph", idx)`` or ``("table", idx)`` so paragraph and
+    table indices never collide.
+    """
 
-    def add(self, classification: Classification) -> None:
-        self.classifications[classification.source_index] = classification
+    classifications: dict[tuple[str, int], Classification] = field(default_factory=dict)
 
-    def get(self, index: int) -> Classification | None:
-        return self.classifications.get(index)
+    @staticmethod
+    def _key(index: int | tuple[str, int]) -> tuple[str, int]:
+        if isinstance(index, tuple):
+            return index
+        return ("paragraph", index)
+
+    def add(self, index: int | tuple[str, int], classification: Classification) -> None:
+        self.classifications[self._key(index)] = classification
+
+    def get(self, index: int | tuple[str, int]) -> Classification | None:
+        return self.classifications.get(self._key(index))
 
     def review_items(self) -> list[Classification]:
         return [c for c in self.classifications.values() if c.needs_review]
