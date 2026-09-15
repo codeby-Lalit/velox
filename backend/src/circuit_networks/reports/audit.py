@@ -28,6 +28,9 @@ def build_audit_payload(
     output_files: dict[str, str],
     review_decisions: dict | None = None,
 ) -> dict:
+    # Index texts once so large documents stay linear (R13).
+    text_by_index = {p.index: p.text for p in model.paragraphs}
+    paragraph_text = text_by_index.get
     return {
         "engine": {"name": ENGINE_NAME, "version": ENGINE_VERSION},
         "generated_at": _iso_now(),
@@ -53,7 +56,7 @@ def build_audit_payload(
                 "confidence": round(c.confidence, 4),
                 "reason_codes": sorted(c.reason_codes),
                 "subtype": c.subtype,
-                "text": _paragraph_text(model, c.source_index),
+                "text": paragraph_text(c.source_index),
             }
             for _, c in sorted(
                 structure.classifications.items(),
@@ -68,7 +71,7 @@ def build_audit_payload(
                     "element_type": c.element_type,
                     "confidence": round(c.confidence, 4),
                     "reason_codes": sorted(c.reason_codes),
-                    "text": _paragraph_text(model, c.source_index),
+                    "text": paragraph_text(c.source_index),
                 }
                 for c in structure.review_items()
             ],
@@ -94,13 +97,6 @@ def build_audit_payload(
             ),
         },
     }
-
-
-def _paragraph_text(model: DocumentModel, index: int) -> str | None:
-    for p in model.paragraphs:
-        if p.index == index:
-            return p.text
-    return None
 
 
 def write_json_report(payload: dict, path: str) -> str:

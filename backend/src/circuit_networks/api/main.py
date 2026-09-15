@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import tempfile
+import uuid
 from pathlib import Path
 
 import uvicorn
@@ -29,6 +31,17 @@ app.add_middleware(
 
 UPLOADS = Path(tempfile.gettempdir()) / "circuit-networks"
 UPLOADS.mkdir(parents=True, exist_ok=True)
+
+# R11: refuse oversized uploads (plenty for 400+ page manuscripts)
+MAX_UPLOAD_BYTES = 200 * 1024 * 1024
+_UNSAFE_FILENAME = re.compile(r"[^\w.\- ]")
+
+
+def _safe_filename(filename: str) -> str:
+    """Keep only the file name, stripped of any directory components (R11)."""
+    name = Path(filename).name
+    cleaned = _UNSAFE_FILENAME.sub("_", name)
+    return cleaned or f"manuscript{uuid.uuid4().hex[:8]}.docx"
 
 
 class ReviewRequest(BaseModel):
@@ -73,14 +86,27 @@ async def process_document(
     profile_id: str = Form("default"),
     review_json: str = Form("[]"),
 ):
-    if not file.filename or not file.filename.lower().endswith(".docx"):
+    safe_name = _safe_filename(file.filename or "")
+    if not safe_name.lower().endswith(".docx"):
         raise HTTPException(status_code=400, detail="File must be .docx")
 
-    job_dir = UPLOADS / file.filename
+    # Isolate each job in its own directory so names never collide and the
+    # client-provided name can never influence the on-disk location (R11).
+    job_dir = UPLOADS / f"{Path(safe_name).stem}-{uuid.uuid4().hex[:8]}"
     job_dir.mkdir(parents=True, exist_ok=True)
-    source = job_dir / file.filename
+    source = job_dir / safe_name
+
+    total = 0
     with source.open("wb") as fh:
-        shutil.copyfileobj(file.file, fh)
+        while chunk := file.file.read(1024 * 1024):
+            total += len(chunk)
+            if total > MAX_UPLOAD_BYTES:
+                shutil.rmtree(job_dir, ignore_errors=True)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit",
+                )
+            fh.write(chunk)
 
     profile = _load_profile(profile_id)
     decisions = _parse_reviews(review_json)
