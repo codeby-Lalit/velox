@@ -102,6 +102,28 @@ def test_batch_processes_multiple_files():
     assert all(r["payload"]["processing_stats"]["elapsed_ms"] >= 0 for r in body["results"])
 
 
+def test_batch_isolates_invalid_file():
+    """R9: one bad file in a batch is reported per-file, others still pass."""
+    from circuit_networks.api.main import app
+
+    client = TestClient(app)
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    files = [
+        ("files", ("good.docx", open_manuscript_bytes(), mime)),
+        ("files", ("good2.docx", open_manuscript_bytes(), mime)),
+        ("files", ("bad.exe", b"not a docx at all", "application/octet-stream")),
+    ]
+    resp = client.post("/api/process-batch", files=files, data={"profile_id": "default"})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["count"] == 3
+    by_name = {r["filename"]: r for r in body["results"]}
+    assert by_name["good.docx"]["integrity_status"] == "pass"
+    assert by_name["good2.docx"]["integrity_status"] == "pass"
+    assert by_name["bad.exe"]["integrity_status"] == "failed"
+    assert "error" in by_name["bad.exe"]
+
+
 def test_payload_has_metrics_headers_footers_and_structure_view():
     """F109 / F002 / F104: metrics, header-footer extraction and compare view."""
     from circuit_networks.api.main import app

@@ -67,8 +67,13 @@ export default function App() {
     stopAnimation();
     setStageIdx(STAGE_IDS.length - 1);
     setValue(100);
-    if (phaseName === "result") setResult(data);
-    else setBatchResults(data);
+    if (phaseName === "result") {
+      setResult(data);
+      setBatchResults([]);
+    } else {
+      setResult(null);
+      setBatchResults(data.results || []);
+    }
     setTimeout(() => setPhase(phaseName), 350);
   }, [stopAnimation]);
 

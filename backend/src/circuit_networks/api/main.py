@@ -5,7 +5,9 @@ from __future__ import annotations
 import re
 import shutil
 import tempfile
+import time
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
@@ -20,7 +22,31 @@ from ..core.paths import frontend_dir, profiles_dir
 from ..core.pipeline import run_pipeline, version_string
 from ..review.queue import ReviewDecision
 
-app = FastAPI(title="Circuit Networks", version="0.1.0")
+_TEMP_MAX_AGE_SECONDS = 24 * 60 * 60  # sweep job dirs older than 24h
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    UPLOADS.mkdir(parents=True, exist_ok=True)
+    _sweep_old_jobs()
+    yield
+
+
+app = FastAPI(title="Circuit Networks", version="0.1.0", lifespan=_lifespan)
+
+
+def _sweep_old_jobs() -> None:
+    """Delete temp job/batch directories that are no longer serving downloads."""
+    now = time.time()
+    try:
+        for entry in UPLOADS.iterdir():
+            try:
+                if entry.is_dir() and now - entry.stat().st_mtime > _TEMP_MAX_AGE_SECONDS:
+                    shutil.rmtree(entry, ignore_errors=True)
+            except OSError:
+                continue
+    except OSError:
+        pass
 
 app.add_middleware(
     CORSMiddleware,
@@ -108,7 +134,16 @@ async def process_batch(
     job_dir.mkdir(parents=True, exist_ok=True)
     results = []
     for file in files:
-        result = await _process_upload(file, profile_id, "[]", base_dir=job_dir)
+        try:
+            result = await _process_upload(file, profile_id, "[]", base_dir=job_dir)
+        except HTTPException as exc:
+            # R9 safe failure: isolate the bad file without aborting the batch
+            result = {
+                "filename": _safe_filename(file.filename or "unknown.docx"),
+                "integrity_status": "failed",
+                "error": exc.detail if isinstance(exc.detail, str) else "Invalid file",
+                "stage": "upload",
+            }
         results.append(result)
     return {"count": len(results), "results": results}
 
