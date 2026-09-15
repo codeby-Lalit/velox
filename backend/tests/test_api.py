@@ -81,3 +81,42 @@ def test_review_change_decision_applied():
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["integrity_status"] == "pass"
+
+
+def test_batch_processes_multiple_files():
+    """F107: multiple manuscripts in one request, each with its own result."""
+    from circuit_networks.api.main import app
+
+    client = TestClient(app)
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    files = [
+        ("files", ("a.docx", open_manuscript_bytes(), mime)),
+        ("files", ("b.docx", open_manuscript_bytes(), mime)),
+    ]
+    resp = client.post("/api/process-batch", files=files, data={"profile_id": "default"})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["count"] == 2
+    assert {r["filename"] for r in body["results"]} == {"a.docx", "b.docx"}
+    assert all(r["integrity_status"] == "pass" for r in body["results"])
+    assert all(r["payload"]["processing_stats"]["elapsed_ms"] >= 0 for r in body["results"])
+
+
+def test_payload_has_metrics_headers_footers_and_structure_view():
+    """F109 / F002 / F104: metrics, header-footer extraction and compare view."""
+    from circuit_networks.api.main import app
+
+    client = TestClient(app)
+    payload = client.post(
+        "/api/process",
+        files={"file": ("manuscript.docx", open_manuscript_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        data={"profile_id": "default", "review_json": "[]"},
+    ).json()["payload"]
+
+    stats = payload["processing_stats"]
+    assert "elapsed_ms" in stats
+    assert isinstance(stats["pages_estimate"], int) and stats["pages_estimate"] >= 1
+    assert "headers" in payload["source"] and "footers" in payload["source"]
+    view = payload["structure_view"]
+    assert "rows" in view
+    assert all("target_style" in r and "source_index" in r for r in view["rows"])

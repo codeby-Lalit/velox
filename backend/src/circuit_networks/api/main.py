@@ -86,13 +86,47 @@ async def process_document(
     profile_id: str = Form("default"),
     review_json: str = Form("[]"),
 ):
+    result = await _process_upload(file, profile_id, review_json)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result.get("error"))
+    return result
+
+
+@app.post("/api/process-batch")
+async def process_batch(
+    files: list[UploadFile] = File(...),
+    profile_id: str = Form("default"),
+):
+    """F107: process several manuscripts in one request."""
+    if not files:
+        raise HTTPException(status_code=400, detail="No files selected")
+    if len(files) > 50:
+        raise HTTPException(
+            status_code=400, detail="Batch is limited to 50 files at once"
+        )
+    job_dir = UPLOADS / f"batch-{uuid.uuid4().hex[:8]}"
+    job_dir.mkdir(parents=True, exist_ok=True)
+    results = []
+    for file in files:
+        result = await _process_upload(file, profile_id, "[]", base_dir=job_dir)
+        results.append(result)
+    return {"count": len(results), "results": results}
+
+
+async def _process_upload(
+    file: UploadFile,
+    profile_id: str,
+    review_json: str = "[]",
+    base_dir: Path | None = None,
+) -> dict:
     safe_name = _safe_filename(file.filename or "")
     if not safe_name.lower().endswith(".docx"):
         raise HTTPException(status_code=400, detail="File must be .docx")
 
     # Isolate each job in its own directory so names never collide and the
     # client-provided name can never influence the on-disk location (R11).
-    job_dir = UPLOADS / f"{Path(safe_name).stem}-{uuid.uuid4().hex[:8]}"
+    target = base_dir or UPLOADS
+    job_dir = target / f"{Path(safe_name).stem}-{uuid.uuid4().hex[:8]}"
     job_dir.mkdir(parents=True, exist_ok=True)
     source = job_dir / safe_name
 
@@ -113,9 +147,15 @@ async def process_document(
     result = run_pipeline(str(source), profile, output_dir=str(job_dir), decisions=decisions)
 
     if result.error:
-        raise HTTPException(status_code=500, detail=result.error)
+        return {
+            "filename": safe_name,
+            "integrity_status": "failed",
+            "error": result.error,
+            "stage": result.stage,
+        }
 
     return {
+        "filename": safe_name,
         "integrity_status": result.integrity_status,
         "output_docx": result.output_docx,
         "audit_json": result.audit_json,

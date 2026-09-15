@@ -195,6 +195,28 @@ def _extract_metadata(doc: _Document) -> DocumentMetadata:
     )
 
 
+def _extract_headers_footers(doc: _Document) -> tuple[list[str], list[str]]:
+    """Extract per-section header/footer text (F002). Deduplicates repeats."""
+    headers: list[str] = []
+    footers: list[str] = []
+    for section in doc.sections:
+        for attr in ("header", "footer"):
+            texts: list[str] = []
+            for paragraph in getattr(section, attr).paragraphs:
+                text = "".join(r.text or "" for r in paragraph.runs).strip()
+                if text:
+                    texts.append(text)
+            joined = " | ".join(texts)
+            if not joined:
+                joined = None
+            if attr == "header":
+                if joined and joined not in headers:
+                    headers.append(joined)
+            elif joined and joined not in footers:
+                footers.append(joined)
+    return headers, footers
+
+
 def parse_docx(path: str) -> DocumentModel:
     """Parse a DOCX file into a DocumentModel preserving body order."""
     validate_docx(path)
@@ -220,6 +242,7 @@ def parse_docx(path: str) -> DocumentModel:
             table_counter += 1
         # w:sectPr and others are ignored for body content
 
+    headers, footers = _extract_headers_footers(doc)
     return DocumentModel(
         paragraphs=paragraphs,
         tables=tables,
@@ -228,4 +251,6 @@ def parse_docx(path: str) -> DocumentModel:
         source_size_bytes=os.path.getsize(path),
         source_sha256=sha256_of_file(path),
         body_order=body_order,
+        headers=headers,
+        footers=footers,
     )

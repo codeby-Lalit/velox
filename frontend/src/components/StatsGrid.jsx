@@ -1,7 +1,21 @@
 import { motion } from "framer-motion";
-import { FileText, BookOpen, Hash, ListTree, Table2, Image, AlertTriangle, Shield } from "lucide-react";
+import {
+  FileText,
+  BookOpen,
+  Table2,
+  Image,
+  AlertTriangle,
+  Layers,
+  Clock,
+  Hash,
+} from "lucide-react";
 
 const fmt = (v) => (v ?? 0).toLocaleString();
+
+function elapsed(v) {
+  if (v == null) return "—";
+  return v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${v}ms`;
+}
 
 export default function StatsGrid({ stats }) {
   const items = [
@@ -11,6 +25,9 @@ export default function StatsGrid({ stats }) {
     { label: "Captions", value: stats.captions, icon: Image, color: "iris" },
     { label: "Warnings", value: stats.preflight_warnings, icon: AlertTriangle, color: stats.preflight_warnings ? "amber" : "mint" },
     { label: "Errors", value: stats.preflight_errors, icon: AlertTriangle, color: stats.preflight_errors ? "rose" : "mint" },
+    { label: "Words", value: stats.words, icon: Hash, color: "aqua", sub: "counted from source" },
+    { label: "Est. pages", value: stats.pages_estimate, icon: Layers, color: "iris", sub: "≈300 words / page · F109" },
+    { label: "Elapsed", value: elapsed(stats.elapsed_ms), icon: Clock, color: "aqua", sub: "engine time · F109" },
   ];
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -33,6 +50,7 @@ export default function StatsGrid({ stats }) {
             <span className="font-mono text-2xl font-semibold tracking-tight text-white">
               {fmt(item.value)}
             </span>
+            {item.sub && <p className="mt-1 text-[10px] text-slate-600">{item.sub}</p>}
           </motion.div>
         );
       })}

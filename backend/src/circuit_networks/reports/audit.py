@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import html as html_mod
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ..core import constants as C
+from ..core.config import ProfileConfig
 from ..core.version import ENGINE_NAME, ENGINE_VERSION
 from ..core.models import DocumentModel
 from ..integrity.verify import IntegrityReport
@@ -14,9 +17,15 @@ from ..preflight.engine import PreflightIssue
 from ..structure.builder import outline
 from ..structure.model import StructureMap
 
+_WORDS_PER_PAGE = 300  # rough estimate for the pages_estimate metric (F109)
+
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _word_count(texts) -> int:
+    return sum(len(re.findall(r"\S+", t or "")) for t in texts)
 
 
 def build_audit_payload(
@@ -27,6 +36,8 @@ def build_audit_payload(
     profile_name: str,
     output_files: dict[str, str],
     review_decisions: dict | None = None,
+    profile: ProfileConfig | None = None,
+    elapsed_ms: int = 0,
 ) -> dict:
     # Index texts once so large documents stay linear (R13).
     text_by_index = {p.index: p.text for p in model.paragraphs}
@@ -45,8 +56,11 @@ def build_audit_payload(
                 "modified": model.metadata.modified,
                 "language": model.metadata.language,
             },
+            "headers": list(model.headers),
+            "footers": list(model.footers),
         },
         "profile": profile_name,
+        "profile_summary": _profile_summary(profile),
         "structure_summary": structure.summary(),
         "structure_outline": outline(model, structure),
         "classifications": [
@@ -63,6 +77,7 @@ def build_audit_payload(
                 key=lambda item: (0 if item[0][0] == "paragraph" else 1, item[0][1]),
             )
         ],
+        "structure_view": _structure_view(model, structure, profile),
         "preflight_issues": [issue.to_json() for issue in issues],
         "review": {
             "items": [
@@ -95,8 +110,95 @@ def build_audit_payload(
             "preflight_warnings": sum(
                 1 for i in issues if i.severity == "warning"
             ),
+            "words": _word_count(p.text for p in model.paragraphs)
+            + sum(
+                _word_count(cell.text for row in t.rows for cell in row)
+                for t in model.tables
+            ),
+            "pages_estimate": max(
+                1,
+                round(
+                    (
+                        _word_count(p.text for p in model.paragraphs)
+                        + sum(
+                            _word_count(cell.text for row in t.rows for cell in row)
+                            for t in model.tables
+                        )
+                    )
+                    / _WORDS_PER_PAGE
+                ),
+            ),
+            "headers": len(model.headers),
+            "footers": len(model.footers),
+            "elapsed_ms": elapsed_ms,
         },
     }
+
+
+def _profile_summary(profile: ProfileConfig | None) -> dict:
+    if profile is None:
+        return {}
+    return {
+        "id": profile.id,
+        "name": profile.name,
+        "page": profile.page.model_dump(),
+        "body_alignment": profile.body.alignment,
+        "body_font": profile.font_for("body", "Times New Roman", 12.0).model_dump(),
+        "caption_font": profile.font_for("caption", "Times New Roman", 10.0).model_dump(),
+        "headings": {
+            str(level): profile.heading_spec(level).model_dump()
+            for level in range(5)
+        },
+    }
+
+
+def _structure_view(
+    model: DocumentModel,
+    structure: StructureMap,
+    profile: ProfileConfig | None,
+) -> dict:
+    """F104 before/after: source side (detected) vs formatted side (profile)."""
+    rows: list[dict] = []
+    for kind, idx in model.body_order:
+        classification = structure.get((kind, idx))
+        if classification is None:
+            continue
+        etype = classification.element_type
+        if not (etype in C.HEADING_KINDS or etype in C.CAPTION_KINDS or etype == C.E_TABLE):
+            continue
+        text = ""
+        source_style = None
+        if kind == "paragraph" and 0 <= idx < len(model.paragraphs):
+            p = model.paragraphs[idx]
+            text = (p.text or "").strip()
+            source_style = p.style_name
+        elif kind == "table":
+            source_style = "Table"
+        target_style, target_font = _target_style(etype, profile)
+        rows.append(
+            {
+                "source_index": idx,
+                "element_type": etype,
+                "confidence": round(classification.confidence, 4),
+                "text": text[:120],
+                "source_style": source_style,
+                "target_style": target_style,
+                "target_font": target_font,
+            }
+        )
+    return {"rows": rows, "page": profile.page.model_dump() if profile else {}}
+
+
+def _target_style(etype: str, profile: ProfileConfig | None) -> tuple[str, dict]:
+    if etype in C.TYPE_TO_HEADING_STYLE:
+        style = C.TYPE_TO_HEADING_STYLE[etype]
+        level = C.TYPE_TO_LEVEL_INDEX.get(etype, 2)
+        font = profile.heading_spec(level).font if profile else None
+        return style, font.model_dump() if font else {}
+    if etype in C.CAPTION_KINDS:
+        font = profile.font_for("caption", "Times New Roman", 10.0) if profile else None
+        return "Caption", font.model_dump() if font else {}
+    return "Table Grid", {}
 
 
 def write_json_report(payload: dict, path: str) -> str:

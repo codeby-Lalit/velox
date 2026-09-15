@@ -9,7 +9,7 @@ const fadeUp = {
   show: (i = 0) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.5, ease: "easeOut" } }),
 };
 
-export default function ImportView({ file, onFile, profiles, profileId, setProfileId, onStart, busy }) {
+export default function ImportView({ files, onFiles, profiles, profileId, setProfileId, onStart, busy }) {
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10 sm:py-16">
       {/* Header */}
@@ -57,7 +57,7 @@ export default function ImportView({ file, onFile, profiles, profileId, setProfi
             </div>
             <Badge tone="info" dot={false}>Step 1 · 3</Badge>
           </div>
-          <Dropzone file={file} onFile={onFile} />
+          <Dropzone files={files} onFiles={onFiles} />
         </div>
 
         <div className="flex flex-col gap-6">
@@ -105,17 +105,19 @@ export default function ImportView({ file, onFile, profiles, profileId, setProfi
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
-          disabled={!file || busy}
+          disabled={!files.length || busy}
           onClick={onStart}
           className="group inline-flex h-13 items-center gap-3 rounded-2xl bg-gradient-to-r from-aqua-400 via-iris-400 to-iris-400 px-8 text-[15px] font-semibold text-white shadow-glow transition-all hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none"
         >
           <Zap className="h-4.5 w-4.5 transition-transform group-hover:rotate-12" />
-          Analyze & Format
+          {files.length > 1 ? `Analyze & Format ${files.length} files` : "Analyze & Format"}
         </motion.button>
         <p className="mt-3 text-xs text-slate-500">
-          {file
-            ? `Ready to process "${file.name}"`
-            : "Select a manuscript to enable processing"}
+          {files.length === 0
+            ? "Select a manuscript to enable processing"
+            : files.length === 1
+              ? `Ready to process "${files[0].name}"`
+              : `${files.length} manuscripts ready for batch processing (F107)`}
         </p>
       </motion.div>
     </div>

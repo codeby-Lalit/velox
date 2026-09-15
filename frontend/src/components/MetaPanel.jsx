@@ -49,6 +49,25 @@ export default function MetaPanel({ payload }) {
           {payload.engine?.name} {payload.engine?.version}
         </span>
       </Row>
+
+      {(source.headers?.length || source.footers?.length) && (
+        <>
+          <div className="mt-4 border-t border-line" />
+          <div className="py-2">
+            <p className="text-xs font-medium text-slate-400">Headers & footers (F002)</p>
+            {source.headers?.map((h, i) => (
+              <p key={`h-${i}`} className="mt-1 truncate font-mono text-[10px] text-slate-500">
+                HDR · {h}
+              </p>
+            ))}
+            {source.footers?.map((f, i) => (
+              <p key={`f-${i}`} className="mt-1 truncate font-mono text-[10px] text-slate-500">
+                FTR · {f}
+              </p>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

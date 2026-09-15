@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, AlertCircle, Info } from "lucide-react";
+import { AlertTriangle, AlertCircle, Info, LocateFixed } from "lucide-react";
 import { cn } from "../lib/utils";
 
 const severityStyle = {
@@ -8,7 +8,7 @@ const severityStyle = {
   info: { icon: Info, tone: "bg-aqua-400/[0.07] ring-aqua-400/30 text-aqua-300" },
 };
 
-export default function IssuesList({ issues }) {
+export default function IssuesList({ issues, onLocate }) {
   if (!issues || issues.length === 0) {
     return (
       <div className="py-12 text-center">
@@ -24,6 +24,7 @@ export default function IssuesList({ issues }) {
       {issues.map((issue, i) => {
         const style = severityStyle[issue.severity] || severityStyle.info;
         const Icon = style.icon;
+        const hasLocation = typeof issue.source_index === "number" && issue.source_index >= 0;
         return (
           <motion.div
             key={`${issue.code}-${i}`}
@@ -40,6 +41,17 @@ export default function IssuesList({ issues }) {
               <p className="text-[13px] font-medium text-white">{issue.message}</p>
               <p className="mt-1 font-mono text-[11px] text-slate-400">{issue.code}</p>
             </div>
+            {hasLocation && onLocate && (
+              <button
+                onClick={() => onLocate(issue.source_index)}
+                title={`Jump to element ${issue.source_index} (F105)`}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium text-slate-400 hover:bg-white/[0.06] hover:text-aqua-300"
+              >
+                <LocateFixed className="h-3 w-3" />
+                <span className="hidden sm:inline">Locate</span>
+                <span className="font-mono text-slate-500">#{issue.source_index}</span>
+              </button>
+            )}
           </motion.div>
         );
       })}

@@ -30,21 +30,8 @@ _ALIGNMENT = {
     "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
 }
 
-_TYPE_TO_HEADING_STYLE = {
-    C.E_TITLE: "Title",
-    C.E_CHAPTER: "Heading 1",
-    C.E_SECTION: "Heading 2",
-    C.E_SUBSECTION: "Heading 3",
-    C.E_SUBSUBSECTION: "Heading 4",
-}
-
-_LEVEL_INDEX = {
-    C.E_TITLE: 0,
-    C.E_CHAPTER: 1,
-    C.E_SECTION: 2,
-    C.E_SUBSECTION: 3,
-    C.E_SUBSUBSECTION: 4,
-}
+_TYPE_TO_HEADING_STYLE = C.TYPE_TO_HEADING_STYLE
+_LEVEL_INDEX = C.TYPE_TO_LEVEL_INDEX
 
 
 def _set_run_font(run, spec) -> None:

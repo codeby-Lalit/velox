@@ -48,3 +48,21 @@ E_BACKMATTER = "back_matter"
 # Structural element kinds assigned to paragraphs
 HEADING_KINDS = {E_TITLE, E_CHAPTER, E_SECTION, E_SUBSECTION, E_SUBSUBSECTION}
 CAPTION_KINDS = {E_FIGURE_CAPTION, E_TABLE_CAPTION, E_CAPTION}
+
+# Word style targeted for each detected element type (single source of truth)
+TYPE_TO_HEADING_STYLE = {
+    E_TITLE: "Title",
+    E_CHAPTER: "Heading 1",
+    E_SECTION: "Heading 2",
+    E_SUBSECTION: "Heading 3",
+    E_SUBSUBSECTION: "Heading 4",
+}
+
+# Heading index used to pick per-level formatting specs from a profile
+TYPE_TO_LEVEL_INDEX = {
+    E_TITLE: 0,
+    E_CHAPTER: 1,
+    E_SECTION: 2,
+    E_SUBSECTION: 3,
+    E_SUBSUBSECTION: 4,
+}

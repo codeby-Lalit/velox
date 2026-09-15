@@ -24,10 +24,13 @@ echo Bundle ready:  dist\CircuitNetworks\CircuitNetworks.exe
 echo.
 
 REM Optional installer
-where ISCC >nul 2>nul
-if %errorlevel%==0 (
+set "ISCC_EXE="
+where ISCC >nul 2>nul && set "ISCC_EXE=ISCC"
+if not defined ISCC_EXE if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" set "ISCC_EXE=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+if not defined ISCC_EXE if exist "C:\Program Files\Inno Setup 6\ISCC.exe" set "ISCC_EXE=C:\Program Files\Inno Setup 6\ISCC.exe"
+if defined ISCC_EXE (
     echo Compiling installer with Inno Setup...
-    ISCC packaging\circuit-networks.iss
+    "%ISCC_EXE%" packaging\circuit-networks.iss
     echo Installer ready: release\CircuitNetworks-Setup-0.1.0.exe
 ) else (
     echo Inno Setup (ISCC) not found - skipped installer.

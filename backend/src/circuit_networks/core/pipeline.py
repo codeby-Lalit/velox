@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -38,6 +39,7 @@ class PipelineResult:
     workdir: str = ""
     error: str | None = None
     stage: str = ""  # failed stage name
+    elapsed_ms: int = 0
 
     def payload(self) -> dict:
         return build_audit_payload(
@@ -46,11 +48,13 @@ class PipelineResult:
             issues=self.issues,
             integrity=self.integrity,
             profile_name=getattr(self, "_profile_name", ""),
+            profile=getattr(self, "_profile", None),
             output_files={
                 "docx": self.output_docx or "",
                 "json": self.audit_json or "",
                 "html": self.audit_html or "",
             },
+            elapsed_ms=self.elapsed_ms,
         )
 
     def write_reports(self) -> dict[str, str]:
@@ -74,6 +78,8 @@ def run_pipeline(
 
     result = PipelineResult(source_path=source_path, workdir=workdir)
     result._profile_name = profile.name  # type: ignore[attr-defined]
+    result._profile = profile  # type: ignore[attr-defined]
+    started = time.perf_counter()
 
     try:
         result.stage = "parse"
@@ -101,6 +107,8 @@ def run_pipeline(
         result.stage = "integrity"
         result.integrity = verify_integrity(source_path, output_docx)
         result.integrity_status = result.integrity.status
+
+        result.elapsed_ms = int((time.perf_counter() - started) * 1000)
 
         result.stage = "reports"
         result.audit_json = str(Path(workdir) / f"{base}_audit_report.json")

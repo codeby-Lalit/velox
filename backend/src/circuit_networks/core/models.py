@@ -7,7 +7,6 @@ classification, preview, and integrity checks easy to test in isolation.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -92,9 +91,6 @@ class DocumentModel:
     source_sha256: str | None = None
     # global interleaved body order: list of ("paragraph", idx) / ("table", idx)
     body_order: list[tuple[str, int]] = field(default_factory=list)
-
-    def body_elements(self) -> list[Any]:
-        """In-order stream of paragraphs and tables (tables at correct positions)."""
-        # Tables are appended after the paragraph they follow when the parser
-        # cannot preserve interleaving; parser keeps order as is.
-        return [*self.paragraphs, *self.tables]
+    # header / footer text extracted per section (F002, where supported)
+    headers: list[str] = field(default_factory=list)
+    footers: list[str] = field(default_factory=list)

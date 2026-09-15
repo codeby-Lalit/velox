@@ -1,20 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { fetchProfiles, processDocument } from "./lib/api";
+import { fetchProfiles, processDocument, processBatch } from "./lib/api";
 import { AlertCircle, X } from "lucide-react";
 import ImportView from "./views/ImportView";
 import ProcessingView from "./views/ProcessingView";
 import ResultsView from "./views/ResultsView";
+import BatchResultsView from "./views/BatchResultsView";
 
 const STAGE_IDS = ["parse", "classify", "preflight", "format", "integrity", "report"];
 const STAGE_MS = 650;
 
 export default function App() {
   const [profiles, setProfiles] = useState([]);
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [profileId, setProfileId] = useState("default");
-  const [phase, setPhase] = useState("idle"); // idle | processing | result | error
+  const [phase, setPhase] = useState("idle"); // idle | processing | result | batch | error
   const [result, setResult] = useState(null);
+  const [batchResults, setBatchResults] = useState([]);
+  const [activeFile, setActiveFile] = useState(null);
   const [error, setError] = useState(null);
   const [decisions, setDecisions] = useState(new Map());
   const [stageIdx, setStageIdx] = useState(0);
@@ -39,10 +42,10 @@ export default function App() {
 
   useEffect(() => stopAnimation, []);
 
-  const startProcess = useCallback(async (reviews = []) => {
-    if (!file) return;
+  const beginProcessing = useCallback(() => {
     setError(null);
     setResult(null);
+    setBatchResults([]);
     setPhase("processing");
     setStageIdx(0);
     setValue(2);
@@ -51,33 +54,56 @@ export default function App() {
     const controller = new AbortController();
     controllerRef.current = controller;
 
-    // advance the staged pipeline animation while the engine works
     let idx = 0;
     timerRef.current = setInterval(() => {
       idx = Math.min(idx + 1, STAGE_IDS.length);
       setStageIdx(idx);
       setValue((idx / STAGE_IDS.length) * 92);
     }, STAGE_MS);
+    return controller;
+  }, [stopAnimation]);
 
-    try {
-      const data = await processDocument({
-        file,
-        profileId,
-        reviews,
-        signal: controller.signal,
-      });
-      stopAnimation();
-      setStageIdx(STAGE_IDS.length - 1);
-      setValue(100);
-      setResult(data);
-      setTimeout(() => setPhase("result"), 350);
-    } catch (err) {
-      if (err.name === "AbortError") return;
-      stopAnimation();
-      setError(err.message || "Processing failed");
-      setPhase("error");
-    }
-  }, [file, profileId, stopAnimation]);
+  const finishProcessing = useCallback((phaseName, data) => {
+    stopAnimation();
+    setStageIdx(STAGE_IDS.length - 1);
+    setValue(100);
+    if (phaseName === "result") setResult(data);
+    else setBatchResults(data);
+    setTimeout(() => setPhase(phaseName), 350);
+  }, [stopAnimation]);
+
+  const startProcess = useCallback(
+    async (reviews = [], filesOverride) => {
+      const active = filesOverride && filesOverride.length ? filesOverride : files;
+      if (!active || active.length === 0) return;
+      const controller = beginProcessing();
+
+      try {
+        if (active.length === 1) {
+          const data = await processDocument({
+            file: active[0],
+            profileId,
+            reviews,
+            signal: controller.signal,
+          });
+          finishProcessing("result", data);
+        } else {
+          const data = await processBatch({
+            files: active,
+            profileId,
+            signal: controller.signal,
+          });
+          finishProcessing("batch", data);
+        }
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        stopAnimation();
+        setError(err.message || "Processing failed");
+        setPhase("error");
+      }
+    },
+    [files, profileId, beginProcessing, finishProcessing, stopAnimation]
+  );
 
   const handleDecision = useCallback((sourceIndex, action, newElementType) => {
     setDecisions((prev) => {
@@ -91,14 +117,19 @@ export default function App() {
 
   const commitDecisions = useCallback(() => {
     const reviews = [...decisions.values()];
-    if (reviews.length) startProcess(reviews);
-  }, [decisions, startProcess]);
+    if (reviews.length) startProcess(reviews, activeFile ? [activeFile] : undefined);
+  }, [decisions, startProcess, activeFile]);
 
   const cancelProcessing = useCallback(() => {
     stopAnimation();
     controllerRef.current?.abort();
     setPhase("idle");
   }, [stopAnimation]);
+
+  const processingLabel = useCallback(() => {
+    if (files.length > 1) return `${files.length} manuscripts`;
+    return files[0]?.name ?? "document.docx";
+  }, [files]);
 
   return (
     <div className="circuit-bg min-h-full">
@@ -126,8 +157,8 @@ export default function App() {
               </motion.div>
             )}
             <ImportView
-              file={file}
-              onFile={setFile}
+              files={files}
+              onFiles={setFiles}
               profiles={profiles}
               profileId={profileId}
               setProfileId={setProfileId}
@@ -138,7 +169,7 @@ export default function App() {
 
         {phase === "processing" && (
           <ProcessingView
-            fileName={file?.name ?? "document.docx"}
+            fileName={processingLabel()}
             current={STAGE_IDS[stageIdx]}
             value={value}
             onCancel={cancelProcessing}
@@ -153,6 +184,21 @@ export default function App() {
             onDecision={handleDecision}
             onResetDecisions={resetDecisions}
             onReProcess={commitDecisions}
+            onBack={() => (activeFile ? setPhase("batch") : setPhase("idle"))}
+            onRunAgain={() => startProcess([], activeFile ? [activeFile] : undefined)}
+          />
+        )}
+
+        {phase === "batch" && batchResults.length > 0 && (
+          <BatchResultsView
+            results={batchResults}
+            onOpen={(res) => {
+              const matched = files.find((f) => f.name === res.filename);
+              setActiveFile(matched ?? null);
+              setResult(res);
+              setDecisions(new Map());
+              setPhase("result");
+            }}
             onBack={() => setPhase("idle")}
             onRunAgain={() => startProcess()}
           />

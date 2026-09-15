@@ -18,3 +18,15 @@ export async function processDocument({ file, profileId, reviews = [], signal })
   }
   return data;
 }
+
+export async function processBatch({ files, profileId, signal }) {
+  const form = new FormData();
+  for (const file of files) form.append("files", file);
+  form.append("profile_id", profileId);
+  const res = await fetch(`${API}/process-batch`, { method: "POST", body: form, signal });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.detail || `Batch processing failed (HTTP ${res.status})`);
+  }
+  return data;
+}

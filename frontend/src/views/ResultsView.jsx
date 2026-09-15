@@ -10,6 +10,7 @@ import {
   FileText,
   ArrowLeft,
   RefreshCw,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn, downloadUrl } from "../lib/utils";
 import IntegrityBanner from "../components/IntegrityBanner";
@@ -18,11 +19,13 @@ import StructureTree from "../components/StructureTree";
 import IssuesList from "../components/IssuesList";
 import ReviewQueue from "../components/ReviewQueue";
 import ClassificationPanel from "../components/ClassificationPanel";
+import CompareView from "../components/CompareView";
 import MetaPanel from "../components/MetaPanel";
 import { Badge } from "../components/ui/badge";
 
 const TABS = [
   { id: "structure", label: "Structure", icon: ListTree, sub: "Detected hierarchy" },
+  { id: "compare", label: "Before/After", icon: ArrowLeftRight, sub: "F104 · detect → format" },
   { id: "issues", label: "Issues", icon: AlertTriangle, sub: "Preflight findings" },
   { id: "review", label: "Review", icon: ClipboardCheck, sub: "F101 · editor decisions" },
   { id: "decisions", label: "Why", icon: Sparkles, sub: "Explainable reasons" },
@@ -39,6 +42,7 @@ export default function ResultsView({
   busy,
 }) {
   const [tab, setTab] = useState("structure");
+  const [highlightIndex, setHighlightIndex] = useState(null);
   const payload = result.payload;
   const stats = payload.processing_stats || {};
   const integrity = payload.integrity || {};
@@ -46,7 +50,13 @@ export default function ResultsView({
   const issues = payload.preflight_issues || [];
   const outline = payload.structure_outline || [];
   const classifications = payload.classifications || [];
+  const compareRows = payload.structure_view?.rows || [];
   const base = (payload.source?.path || "").split(/[\\/]/).pop().replace(/\.docx$/i, "") || "output";
+
+  const locate = (sourceIndex) => {
+    setHighlightIndex(sourceIndex);
+    setTab("structure");
+  };
 
   return (
     <motion.div
@@ -175,12 +185,17 @@ export default function ResultsView({
             >
               {tab === "structure" && (
                 <div className="glass rounded-2xl p-4">
-                  <StructureTree outline={outline} />
+                  <StructureTree outline={outline} highlightIndex={highlightIndex} />
+                </div>
+              )}
+              {tab === "compare" && (
+                <div className="glass rounded-2xl p-4">
+                  <CompareView rows={compareRows} />
                 </div>
               )}
               {tab === "issues" && (
                 <div className="glass rounded-2xl p-4">
-                  <IssuesList issues={issues} />
+                  <IssuesList issues={issues} onLocate={locate} />
                 </div>
               )}
               {tab === "review" && (
