@@ -13,7 +13,7 @@ import threading
 import time
 import webbrowser
 
-from .api.main import serve
+from circuit_networks.api.main import serve
 
 
 def _open_browser(port: int) -> None:

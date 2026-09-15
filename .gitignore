@@ -20,6 +20,7 @@ frontend/dist/
 
 # Output artifacts
 out/
+release/
 
 # OS
 Thumbs.db
