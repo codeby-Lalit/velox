@@ -42,9 +42,10 @@ def profiles_dir() -> Path:
 
 
 def frontend_dir() -> Path | None:
-    """Locate the static frontend directory (dev or bundled)."""
+    """Locate the static frontend directory (built React app first, fallback to source)."""
     candidates = [
         _meipass() / "frontend",
+        repo_root() / "frontend" / "dist",
         repo_root() / "frontend",
     ]
     for candidate in candidates:

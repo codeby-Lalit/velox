@@ -42,8 +42,8 @@ class ProcessRequest(BaseModel):
     reviews: list[ReviewRequest] = []
 
 
-@app.get("/")
-def index() -> dict:
+@app.get("/api/health")
+def health() -> dict:
     return {"name": "Circuit Networks API", "version": version_string()}
 
 

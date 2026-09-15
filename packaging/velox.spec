@@ -11,13 +11,25 @@ import os
 from pathlib import Path
 
 ROOT = Path(SPECPATH).resolve().parents[1]
+# Robust: some PyInstaller versions set SPECPATH to the CWD instead of the
+# spec directory. Fall back to a marker search for the repo root.
+if not (ROOT / "backend").exists():
+    for parent in Path(SPECPATH).resolve().parents:
+        if (parent / "backend").exists() and (parent / "profiles").exists():
+            ROOT = parent
+            break
+
+FRONTEND_DIST = ROOT / "frontend" / "dist"
+assert FRONTEND_DIST.exists(), (
+    "React frontend not built. Run `npm run build` in frontend/ first."
+)
 
 a = Analysis(
     [str(ROOT / "backend" / "src" / "circuit_networks" / "desktop.py")],
     pathex=[str(ROOT / "backend" / "src")],
     binaries=[],
     datas=[
-        (str(ROOT / "frontend"), "frontend"),
+        (str(FRONTEND_DIST), "frontend"),
         (str(ROOT / "profiles"), "profiles"),
     ],
     hiddenimports=[
@@ -31,6 +43,7 @@ a = Analysis(
         "uvicorn.protocols.websockets.auto",
         "uvicorn.lifespan",
         "uvicorn.lifespan.on",
+        "python_multipart",
     ],
     hookspath=[],
     hooksconfig={},
@@ -70,7 +83,7 @@ coll = COLLECT(
 )
 
 # Bundle the app directory structure so profiles/frontend resolve inside dist.
-for rel in ["frontend", "profiles"]:
+for rel in ["profiles"]:
     src = ROOT / rel
     if src.exists():
         dst = ROOT / "dist" / "CircuitNetworks" / "_internal" / rel
