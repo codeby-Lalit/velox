@@ -1,0 +1,50 @@
+"""Validation thresholds and engine-wide constants.
+
+Thresholds follow INTRACTION.md section 5 but remain configurable per profile.
+"""
+
+from __future__ import annotations
+
+AUTO_THRESHOLD = 0.90
+REVIEW_THRESHOLD = 0.70
+
+REASON_CODES = {
+    "title_position",
+    "single_short_line",
+    "bold",
+    "italic",
+    "all_caps",
+    "large_font",
+    "heading_style",
+    "numbering_pattern",
+    "roman_numbering",
+    "spacing_before",
+    "spacing_after",
+    "small_percent_after_or_before",
+    "similarity_to_headings",
+    "short_line",
+    "non_heading_font_discontinuity",
+    "table_caption_keyword",
+    "figure_caption_keyword",
+    "caption_numbering_pattern",
+    "adjacent_numbered_reference",
+    "starts_with_caption_label",
+}
+
+# Element types
+E_TITLE = "title"
+E_CHAPTER = "chapter"
+E_SECTION = "section"
+E_SUBSECTION = "subsection"
+E_SUBSUBSECTION = "subsubsection"
+E_PARAGRAPH = "paragraph"
+E_TABLE = "table"
+E_FIGURE_CAPTION = "figure_caption"
+E_TABLE_CAPTION = "table_caption"
+E_CAPTION = "caption"
+E_FRONTMATTER = "front_matter"
+E_BACKMATTER = "back_matter"
+
+# Structural element kinds assigned to paragraphs
+HEADING_KINDS = {E_TITLE, E_CHAPTER, E_SECTION, E_SUBSECTION, E_SUBSUBSECTION}
+CAPTION_KINDS = {E_FIGURE_CAPTION, E_TABLE_CAPTION, E_CAPTION}
