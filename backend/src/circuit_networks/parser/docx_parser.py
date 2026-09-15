@@ -90,11 +90,7 @@ def _heading_level_of(style_name: str | None) -> int | None:
 
 
 def _run_text(run) -> str:
-    text = run.text or ""
-    # python-docx returns already-unescaped text; tabs/newlines preserved.
-    if run._element.tag == qn("w:br"):
-        return ""
-    return text
+    return run.text or ""
 
 
 def _parse_runs(paragraph: Paragraph) -> list[RunInfo]:

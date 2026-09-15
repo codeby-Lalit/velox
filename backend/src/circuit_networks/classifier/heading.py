@@ -109,8 +109,6 @@ def _numbering_info(text: str) -> tuple[int | None, str | None]:
         return 0, f"{m.group(0)} {num}".strip()
 
     m = _NUMBER_NESTED_RE.match(stripped)
-    if m and _roman_to_int(m.group("num").split(".")[0]) > 0:  # 1.2 style, guard
-        pass  # nested numeric matched
     if m:
         num = m.group("num")
         depth = num.count(".") + 1
@@ -277,9 +275,6 @@ class HeadingClassifier:
 
         kind = _level_to_kind(level, numbering_str, first_heading)
         confidence = min(0.99, round(signals, 4))
-        if confidence < C.AUTO_THRESHOLD and numbering is not None:
-            pass  # still returned; review flags are applied downstream
-
         return Classification(
             element_type=kind,
             confidence=confidence,
@@ -305,7 +300,7 @@ class CaptionClassifier:
         }[ctype]
         confidence = 0.90
         codes = ["caption_label", "caption_numbering_pattern"]
-        if ":" in text.split(label, 1)[1][:20] or ". " in text or ". " in text:
+        if ":" in text.split(label, 1)[1][:20] or ". " in text:
             codes.append("starts_with_caption_label")
             confidence = min(0.98, confidence + 0.05)
         return Classification(

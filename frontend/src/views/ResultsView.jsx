@@ -43,6 +43,31 @@ export default function ResultsView({
 }) {
   const [tab, setTab] = useState("structure");
   const [highlightIndex, setHighlightIndex] = useState(null);
+
+  if (!result || !result.payload) {
+    // R9 safe failure: a document that failed mid-pipeline has no payload to render.
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-auto w-full max-w-2xl px-6 py-16"
+      >
+        <div className="glass rounded-2xl p-8 text-center">
+          <p className="text-sm font-semibold text-rose-300">
+            This document could not be processed.
+          </p>
+          <p className="mt-2 text-xs text-slate-400">{result?.error || "Unknown pipeline failure."}</p>
+          <button
+            onClick={onBack}
+            className="mt-6 inline-flex h-9 items-center gap-2 rounded-xl border border-line px-4 text-xs font-medium text-slate-300 hover:bg-white/[0.06] hover:text-white"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
   const payload = result.payload;
   const stats = payload.processing_stats || {};
   const integrity = payload.integrity || {};

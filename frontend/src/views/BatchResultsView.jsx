@@ -62,12 +62,14 @@ function ResultCard({ item, index, onOpen }) {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => onOpen(item)}
-          className="inline-flex h-9 items-center gap-2 rounded-xl bg-gradient-to-r from-mint-400 to-aqua-400 px-3.5 text-xs font-semibold text-ink-950 hover:brightness-110"
-        >
-          <Eye className="h-3.5 w-3.5" /> Open report
-        </button>
+        {item.payload && (
+          <button
+            onClick={() => onOpen(item)}
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-gradient-to-r from-mint-400 to-aqua-400 px-3.5 text-xs font-semibold text-ink-950 hover:brightness-110"
+          >
+            <Eye className="h-3.5 w-3.5" /> Open report
+          </button>
+        )}
         {item.output_docx && (
           <a
             href={downloadUrl(item.output_docx)}

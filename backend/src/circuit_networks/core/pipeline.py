@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 import time
+import tracemalloc
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -40,6 +41,7 @@ class PipelineResult:
     error: str | None = None
     stage: str = ""  # failed stage name
     elapsed_ms: int = 0
+    peak_memory_bytes: int = 0
 
     def payload(self) -> dict:
         return build_audit_payload(
@@ -55,6 +57,7 @@ class PipelineResult:
                 "html": self.audit_html or "",
             },
             elapsed_ms=self.elapsed_ms,
+            peak_memory_bytes=self.peak_memory_bytes,
         )
 
     def write_reports(self) -> dict[str, str]:
@@ -80,6 +83,7 @@ def run_pipeline(
     result._profile_name = profile.name  # type: ignore[attr-defined]
     result._profile = profile  # type: ignore[attr-defined]
     started = time.perf_counter()
+    tracemalloc.start()
 
     try:
         result.stage = "parse"
@@ -121,6 +125,10 @@ def run_pipeline(
         result.error = f"{type(exc).__name__}: {exc}"
         result.stage = result.stage or "unknown"
         return result
+    finally:
+        result.peak_memory_bytes = tracemalloc.get_traced_memory()[1]
+        if tracemalloc.is_tracing():
+            tracemalloc.stop()
 
 
 def version_string() -> str:

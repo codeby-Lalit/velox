@@ -38,6 +38,7 @@ def build_audit_payload(
     review_decisions: dict | None = None,
     profile: ProfileConfig | None = None,
     elapsed_ms: int = 0,
+    peak_memory_bytes: int = 0,
 ) -> dict:
     # Index texts once so large documents stay linear (R13).
     text_by_index = {p.index: p.text for p in model.paragraphs}
@@ -131,6 +132,7 @@ def build_audit_payload(
             "headers": len(model.headers),
             "footers": len(model.footers),
             "elapsed_ms": elapsed_ms,
+            "peak_memory_bytes": peak_memory_bytes,
         },
     }
 
@@ -313,6 +315,8 @@ tr.error {{ background: #ffebe9; }}
 <dt>Headings</dt><dd>{stats['headings']}</dd>
 <dt>Captions</dt><dd>{stats['captions']}</dd>
 <dt>Review items</dt><dd>{stats['review_items']}</dd>
+<dt>Elapsed</dt><dd>{stats['elapsed_ms']} ms</dd>
+<dt>Peak memory</dt><dd>{_format_bytes(stats.get('peak_memory_bytes', 0))}</dd>
 <dt>Output files</dt><dd>{', '.join(html_escape(v) for v in payload['output_files'].values())}</dd>
 </dl>
 </body></html>"""
@@ -320,3 +324,13 @@ tr.error {{ background: #ffebe9; }}
 
 def html_escape(value: str) -> str:
     return html_mod.escape(str(value))
+
+
+def _format_bytes(n: int) -> str:
+    if n <= 0:
+        return "0 B"
+    if n < 1024:
+        return f"{n} B"
+    if n < 1024 * 1024:
+        return f"{n / 1024:.1f} KB"
+    return f"{n / (1024 * 1024):.1f} MB"

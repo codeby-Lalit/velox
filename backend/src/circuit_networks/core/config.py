@@ -35,6 +35,7 @@ class ParagraphSpec(BaseModel):
 class HeadingSpec(ParagraphSpec):
     font: FontSpec = Field(default_factory=lambda: FontSpec(name="Times New Roman", size=16, bold=True))
     keep_with_next: bool = True
+    alignment: str = "left"  # headings default to left, not justify
 
 
 class SectionPageSpec(BaseModel):

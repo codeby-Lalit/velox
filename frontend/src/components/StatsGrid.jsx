@@ -8,6 +8,7 @@ import {
   Layers,
   Clock,
   Hash,
+  MemoryStick,
 } from "lucide-react";
 
 const fmt = (v) => (v ?? 0).toLocaleString();
@@ -15,6 +16,13 @@ const fmt = (v) => (v ?? 0).toLocaleString();
 function elapsed(v) {
   if (v == null) return "—";
   return v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${v}ms`;
+}
+
+function fmtBytes(v) {
+  if (!v) return "—";
+  if (v < 1024) return `${v}B`;
+  if (v < 1024 * 1024) return `${(v / 1024).toFixed(1)}KB`;
+  return `${(v / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 export default function StatsGrid({ stats }) {
@@ -28,6 +36,7 @@ export default function StatsGrid({ stats }) {
     { label: "Words", value: stats.words, icon: Hash, color: "aqua", sub: "counted from source" },
     { label: "Est. pages", value: stats.pages_estimate, icon: Layers, color: "iris", sub: "≈300 words / page · F109" },
     { label: "Elapsed", value: elapsed(stats.elapsed_ms), icon: Clock, color: "aqua", sub: "engine time · F109" },
+    { label: "Peak memory", value: fmtBytes(stats.peak_memory_bytes), icon: MemoryStick, color: "iris", sub: "traced peak · F109" },
   ];
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">

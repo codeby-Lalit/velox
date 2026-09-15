@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import {
@@ -34,6 +35,44 @@ const typeIcon = {
   paragraph: FileText,
 };
 
+function Row({ item, index, lit }) {
+  const ref = useRef(null);
+  const Icon = typeIcon[item.element_type] || Layers;
+
+  useEffect(() => {
+    if (lit && ref.current) {
+      ref.current.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [lit]);
+
+  return (
+    <motion.li
+      ref={ref}
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.02 }}
+      className={cn(
+        "flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors",
+        lit
+          ? "bg-aqua-400/[0.12] ring-1 ring-aqua-400/40"
+          : "hover:bg-white/[0.04]"
+      )}
+      style={{ paddingLeft: 12 + item.depth * 22 }}
+    >
+      {lit && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-aqua-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" />}
+      <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-md ring-1 ring-inset", typeColor[item.element_type] || typeColor.paragraph)}>
+        <Icon className="h-3 w-3" />
+      </span>
+      <span className="flex-1 min-w-0 truncate text-sm text-white">
+        {item.text || <span className="italic text-slate-500">untitled element</span>}
+      </span>
+      <span className="font-mono text-[11px] tabular-nums text-slate-500">
+        {(item.confidence * 100).toFixed(0)}%
+      </span>
+    </motion.li>
+  );
+}
+
 export default function StructureTree({ outline, highlightIndex }) {
   if (!outline || outline.length === 0) {
     return (
@@ -44,37 +83,14 @@ export default function StructureTree({ outline, highlightIndex }) {
   }
   return (
     <ul className="space-y-1.5">
-      {outline.map((item, i) => {
-        const Icon = typeIcon[item.element_type] || Layers;
-        const lit = highlightIndex != null && item.source_index === highlightIndex;
-        return (
-          <motion.li
-            key={`${item.source_index ?? item.depth}-${i}`}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.02 }}
-            ref={lit ? (node) => node?.scrollIntoView({ block: "center", behavior: "smooth" }) : undefined}
-            className={cn(
-              "flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors",
-              lit
-                ? "bg-aqua-400/[0.12] ring-1 ring-aqua-400/40"
-                : "hover:bg-white/[0.04]"
-            )}
-            style={{ paddingLeft: 12 + item.depth * 22 }}
-          >
-            {lit && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-aqua-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" />}
-            <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-md ring-1 ring-inset", typeColor[item.element_type] || typeColor.paragraph)}>
-              <Icon className="h-3 w-3" />
-            </span>
-            <span className="flex-1 min-w-0 truncate text-sm text-white">
-              {item.text || <span className="italic text-slate-500">untitled element</span>}
-            </span>
-            <span className="font-mono text-[11px] tabular-nums text-slate-500">
-              {(item.confidence * 100).toFixed(0)}%
-            </span>
-          </motion.li>
-        );
-      })}
+      {outline.map((item, i) => (
+        <Row
+          key={`${item.source_index ?? item.depth}-${i}`}
+          item={item}
+          index={i}
+          lit={highlightIndex != null && item.source_index === highlightIndex}
+        />
+      ))}
     </ul>
   );
 }

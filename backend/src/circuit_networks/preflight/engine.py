@@ -44,6 +44,7 @@ def _kind_weight(kind: str) -> int:
 
 def run_preflight(model: DocumentModel, structure: StructureMap) -> list[PreflightIssue]:
     issues: list[PreflightIssue] = []
+    text_by_index = {p.index: p.text for p in model.paragraphs}
 
     ordered = [
         (kind, idx)
@@ -59,12 +60,13 @@ def run_preflight(model: DocumentModel, structure: StructureMap) -> list[Preflig
         classification = structure.get(("paragraph", idx))
         weight = _kind_weight(classification.element_type)
         if prev_weight is not None and weight - prev_weight > 1:
+            heading_text = text_by_index.get(idx, "")
             issues.append(
                 PreflightIssue(
                     code="hierarchy_jump",
                     severity=SEVERITY_WARNING,
                     message=(
-                        f"Heading '{model.paragraphs[idx if idx < len(model.paragraphs) else -1].text[:60]}' "
+                        f"Heading '{heading_text[:60]}' "
                         f"jumps from level {prev_weight} to level {weight}."
                     ),
                     source_index=idx,
@@ -73,7 +75,7 @@ def run_preflight(model: DocumentModel, structure: StructureMap) -> list[Preflig
             )
         prev_weight = weight
 
-# 2. Caption mismatches / captions without any heading above
+    # 2. Caption mismatches / captions without any heading above
     seen_any_heading = False
     for kind, idx in model.body_order:
         if kind == "paragraph":

@@ -87,18 +87,18 @@ def outline(model: DocumentModel, structure: StructureMap) -> list[dict]:
     """Flat, display-friendly outline: heading rows and paragraph counts."""
     out: list[dict] = []
     weights = heading_weights()
+    text_by_index = {p.index: p.text for p in model.paragraphs}
 
     def recurse(nodes: list[StructureNode], depth: int) -> None:
         for node in nodes:
             if node.element_type in weights:
+                idx = node.source_indices[0] if node.source_indices else -1
                 out.append(
                     {
                         "depth": depth,
                         "element_type": node.element_type,
-                        "source_index": node.source_indices[0]
-                        if node.source_indices
-                        else None,
-                        "text": _heading_text(model, structure, node),
+                        "source_index": idx,
+                        "text": text_by_index.get(idx, ""),
                         "confidence": round(node.confidence, 4),
                         "children_paragraph_count": _paragraph_count(node),
                     }
@@ -117,14 +117,6 @@ def heading_weights() -> dict[str, int]:
         C.E_SUBSECTION: 3,
         C.E_SUBSUBSECTION: 4,
     }
-
-
-def _heading_text(model: DocumentModel, structure: StructureMap, node: StructureNode) -> str:
-    idx = node.source_indices[0] if node.source_indices else -1
-    for p in model.paragraphs:
-        if p.index == idx:
-            return p.text
-    return ""
 
 
 def _paragraph_count(node: StructureNode) -> int:

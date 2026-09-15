@@ -27,13 +27,18 @@ export default function App() {
   const timerRef = useRef(null);
 
   useEffect(() => {
+    let active = true;
     fetchProfiles()
       .then((p) => {
+        if (!active) return;
         setProfiles(p);
         if (p.length && !p.some((x) => x.id === profileId)) setProfileId(p[0].id);
       })
-      .catch(() => setProfiles([]));
-  }, [profileId]);
+      .catch(() => active && setProfiles([]));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const stopAnimation = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -198,6 +203,12 @@ export default function App() {
           <BatchResultsView
             results={batchResults}
             onOpen={(res) => {
+              if (!res.payload) {
+                // R9: a failed item has no payload — show its error instead of crashing.
+                setError(res.error || res.integrity_status || "Processing failed");
+                setPhase("error");
+                return;
+              }
               const matched = files.find((f) => f.name === res.filename);
               setActiveFile(matched ?? null);
               setResult(res);

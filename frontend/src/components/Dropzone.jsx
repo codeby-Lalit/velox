@@ -3,6 +3,16 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FileText, UploadCloud, X } from "lucide-react";
 import { cn, formatBytes } from "../lib/utils";
 
+function mergeFiles(existing, incoming) {
+  const seen = new Set(existing.map((f) => f.name));
+  const added = incoming.filter((f) => {
+    if (seen.has(f.name)) return false;
+    seen.add(f.name);
+    return true;
+  });
+  return [...existing, ...added];
+}
+
 export default function Dropzone({ files, onFiles }) {
   const inputRef = useRef(null);
   const [drag, setDrag] = useState(false);
@@ -15,10 +25,14 @@ export default function Dropzone({ files, onFiles }) {
     const picked = [...e.dataTransfer.files].filter(
       (f) => f.name.toLowerCase().endsWith(".docx")
     );
-    if (picked.length) onFiles([...files, ...picked]);
+    if (picked.length) onFiles(mergeFiles(files, picked));
   };
 
   const remove = (name) => onFiles(files.filter((f) => f.name !== name));
+
+  const addFiles = (picked) => {
+    if (picked.length) onFiles(mergeFiles(files, picked));
+  };
 
   return (
     <div>
@@ -32,7 +46,7 @@ export default function Dropzone({ files, onFiles }) {
           const picked = [...e.target.files].filter((f) =>
             f.name.toLowerCase().endsWith(".docx")
           );
-          if (picked.length) onFiles([...files, ...picked]);
+          addFiles(picked);
           e.target.value = "";
         }}
       />

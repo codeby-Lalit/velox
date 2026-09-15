@@ -12,7 +12,6 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -47,13 +46,6 @@ def _sweep_old_jobs() -> None:
                 continue
     except OSError:
         pass
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 UPLOADS = Path(tempfile.gettempdir()) / "circuit-networks"
 UPLOADS.mkdir(parents=True, exist_ok=True)
@@ -235,8 +227,6 @@ def download(filename: str):
 
 
 def _mount_frontend() -> None:
-    from fastapi.staticfiles import StaticFiles
-
     frontend = frontend_dir()
     if frontend is not None and frontend.exists():
         if not any(getattr(r, "path", None) == "/" for r in app.router.routes):
