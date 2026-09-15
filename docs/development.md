@@ -28,7 +28,21 @@ This document captures cross-cutting conventions and how to extend the engine.
 - `test_preflight_review_structure.py` — issues, review decisions, hierarchy
 - `test_integrity.py` — pass/fail fingerprints, counts
 - `test_pipeline.py` — end-to-end, review decisions, failure handling
-- `test_api.py` — local API upload → process → audit flow
+- `test_api.py` — local API: single upload, **batch (F107)**, hostile filename
+  (R11), review change (F101), metrics/headers/structure-view assertions
+- `test_samples_corpus.py` — F108 regression: every `samples/*.docx` processed
+  end-to-end with integrity pass; preflight expectations for tricky samples
+
+## Sample corpus (F108)
+
+`samples/` holds six demo manuscripts: `messy_manuscript`, `academic_paper`
+(header/footer), `book_style` (chapter-prefixed), `bad_levels` (hierarchy jumps +
+duplicate captions), `unicode_manuscript` (Devanagari + math, header/footer),
+and `empty_document` (no headings). Rebuild with:
+
+```bash
+python scripts/make_sample.py --corpus
+```
 
 ## Frontend (React premium UI)
 
@@ -36,12 +50,18 @@ The UI lives in `frontend/` as a React + Vite + Tailwind v4 + Framer Motion
 single-page app. It never loads external resources at runtime (fonts are
 bundled via `@fontsource-variable/*`), which keeps the offline constraint (R1).
 
-- Views: Import (dropzone + publisher profile picker), Processing
+- Views: Import (multi-file dropzone + publisher profile picker), Processing
   (staged pipeline animation per F106), Results (integrity banner, stats,
-  and tabbed Structure / Issues / Review / Why panels).
+  tabbed **Structure / Before-After / Issues / Review / Why** panels) and
+  Batch results (F107) with drill-down into per-file reports.
+- **Compare (F104):** backend `structure_view` rows pair each detected element
+  with its profile target style so the UI can render source-vs-formatted.
+- **Locate (F105):** IssuesList asks the Structure tab to highlight the element
+  whose `source_index` matches, then smooth-scrolls to it.
 - Review flow (F101): accept / change / reject per low-confidence item, then
   "Re-analyze with decisions" re-runs the local pipeline with the decisions.
-- API client: `frontend/src/lib/api.js` talks to `/api/*` served by FastAPI.
+- API client: `frontend/src/lib/api.js` talks to `/api/*` served by FastAPI
+  (`processDocument`, `processBatch`, `fetchProfiles`).
 
 ### Building the frontend
 
