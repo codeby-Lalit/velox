@@ -7,7 +7,7 @@
 
 ## Quick Start — Desktop Installer (Recommended)
 
-1. Download the installer from the [latest GitHub Release](https://github.com/l4kushwaha/velox/releases/latest):
+1. Download the installer from the [latest GitHub Release](https://github.com/codeby-Lalit/velox/releases/latest):
    `CircuitNetworks-Setup-0.1.0.exe`
 2. Run the installer; it creates a Start-Menu shortcut and a desktop icon.
 3. Launch **Circuit Networks** — the offline desktop app opens at `http://127.0.0.1:8000`.
@@ -145,7 +145,7 @@ python scripts/make_sample.py --corpus
 ### 1. Clone and install dependencies
 
 ```bash
-git clone https://github.com/l4kushwaha/velox.git
+git clone https://github.com/codeby-Lalit/velox.git
 cd velox/backend
 pip install -e ".[dev]"
 ```
