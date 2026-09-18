@@ -220,9 +220,21 @@ export default function App() {
       setPhase("opened");
       return;
     }
+    const versions = openResult?.history?.versions || [];
+    const head = versions[versions.length - 1];
+    const resumes = (head?.edits || []).map((e) => ({
+      kind: e.kind || "paragraph",
+      source_index: e.source_index,
+      ...(e.text !== undefined ? { text: e.text } : {}),
+      ...(e.element_type !== undefined ? { element_type: e.element_type } : {}),
+    }));
     setBusy(true);
     try {
-      const data = await applyOpenEdits({ file: openFile, edits: [], message: "resumed editing" });
+      const data = await applyOpenEdits({
+        file: openFile,
+        edits: resumes,
+        message: head ? `resumed editing on ${head.id}` : "resumed editing",
+      });
       setResult(data);
       setOpenResult(null);
       setOpenFile(null);
@@ -234,7 +246,7 @@ export default function App() {
     } finally {
       setBusy(false);
     }
-  }, [openFile]);
+  }, [openFile, openResult]);
 
   const processingLabel = useCallback(() => {
     if (files.length > 1) return `${files.length} manuscripts`;

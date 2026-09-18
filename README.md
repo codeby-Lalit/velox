@@ -94,7 +94,7 @@ velox/
 │   │   ├── structure/               # StructureMap, hierarchy builder
 │   │   ├── cli.py                   # Offline CLI
 │   │   └── desktop.py               # PyInstaller entry point
-│   ├── tests/                       # 56 pytest tests incl. 400+ page stress (F110/R13)
+│   ├── tests/                       # 57 pytest tests incl. 400+ page stress (F110/R13)
 │   └── pyproject.toml
 ├── frontend/
 │   ├── src/                         # React 18 + Vite + Tailwind v4 + Framer Motion
@@ -204,7 +204,7 @@ cd backend
 python -m pytest tests -v
 ```
 
-Current count: **56 tests**, including:
+Current count: **57 tests**, including:
 - Parser, classifier, preflight, integrity, pipeline unit tests
 - API smoke tests: single-file, batch (**F107**), hostile filename (**R11**), review change (**F101**),
   apply-edits + history (**F110/F111**), open / reject-plain / restore roundtrip (**F112**)

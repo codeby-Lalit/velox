@@ -198,6 +198,36 @@ def test_download_velox_docx():
     assert manifest["history"], "history must be embedded"
 
 
+def test_download_returns_newest_when_basename_collides():
+    """F112: same basename can exist in several job dirs (open-apply); the
+    download endpoint must serve the newest file, never a stale one."""
+    import os
+    import time
+    from datetime import datetime, timezone
+
+    from circuit_networks.api.main import UPLOADS, app
+    from circuit_networks.velox.package import read_manifest
+
+    client = TestClient(app)
+    body = _process(client)
+    name = body["velox_docx"].split("\\")[-1].split("/")[-1]
+
+    # simulate a second job dir holding an older same-named velox file
+    stale_dir = UPLOADS / f"open-test-{int(time.time())}-{abs(hash(name) % 10**6)}"
+    stale_dir.mkdir(parents=True, exist_ok=True)
+    stale = stale_dir / name
+    stale.write_bytes(Path(body["velox_docx"]).read_bytes())
+    os.utime(stale, (time.time() - 3600, time.time() - 3600))  # 1h older
+
+    resp = client.get(f"/api/download/{name}")
+    assert resp.status_code == 200
+    downloaded = Path(body["velox_docx"]).read_bytes()
+    assert resp.content == downloaded, "download must return the newest velox, not the stale copy"
+    manifest = read_manifest(str(stale_dir / name))
+    assert manifest is not None
+    assert manifest["format"] == "circuit-networks-velox"
+
+
 def test_apply_edits_text_and_role_then_history_and_reopen():
     """F110 end-to-end: edit text + change role, history tracks versions."""
     from circuit_networks.api.main import app

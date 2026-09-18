@@ -201,8 +201,10 @@ async def _process_upload(
 
     _save_job_meta(job_dir, profile_id=profile_id, filename=safe_name)
     _save_reviews(job_dir, review_json)
+    payload = result.payload()
     velox_path, history = _finalize_velox(
-        job_dir, result, profile_id=profile_id, message="Automatic formatting", edits=[]
+        job_dir, result, profile_id=profile_id, message="Automatic formatting", edits=[],
+        stats=payload["processing_stats"],
     )
     return {
         "filename": safe_name,
@@ -212,7 +214,7 @@ async def _process_upload(
         "velox_docx": str(velox_path),
         "audit_json": result.audit_json,
         "audit_html": result.audit_html,
-        "payload": result.payload(),
+        "payload": payload,
         "history": history,
     }
 
@@ -313,6 +315,7 @@ def _finalize_velox(
     profile_id: str,
     message: str,
     edits: list[dict],
+    stats: dict | None = None,
 ) -> tuple[Path, dict]:
     """Copy the formatted docx, embed the manifest, and record a history version."""
     base = Path(result.model.source_path).stem
@@ -326,7 +329,9 @@ def _finalize_velox(
             "size_bytes": getattr(result.model, "source_size_bytes", None),
             "sha256": getattr(result.model, "source_sha256", None),
         }
-    stats = result.payload()["processing_stats"]
+    # Callers build the (large) payload once; pass its stats to avoid building
+    # a second complete payload just for the history entry (R13).
+    stats = stats or result.payload()["processing_stats"]
     append_version(history, message, edits, result.integrity_status, stats)
     (job_dir / "history.json").write_text(
         json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8"
@@ -377,9 +382,10 @@ def apply_edits(req: ApplyEditsRequest):
         raise HTTPException(status_code=500, detail=result.error)
 
     message = req.message or _default_edit_message(edits_list)
+    payload = result.payload()
     velox_path, history = _finalize_velox(
         job_dir, result, profile_id=meta.get("profile_id", "default"), message=message,
-        edits=edits_list,
+        edits=edits_list, stats=payload["processing_stats"],
     )
     return {
         "filename": meta.get("filename", ""),
@@ -389,7 +395,7 @@ def apply_edits(req: ApplyEditsRequest):
         "velox_docx": str(velox_path),
         "audit_json": result.audit_json,
         "audit_html": result.audit_html,
-        "payload": result.payload(),
+        "payload": payload,
         "history": history,
     }
 
@@ -517,8 +523,10 @@ async def apply_open_edits(
         json.dumps(seeded, ensure_ascii=False), encoding="utf-8"
     )
     msg = message or _default_edit_message(edits_list)
+    payload = result.payload()
     velox_path, history = _finalize_velox(
-        job_dir, result, profile_id=profile.id, message=msg, edits=edits_list
+        job_dir, result, profile_id=profile.id, message=msg, edits=edits_list,
+        stats=payload["processing_stats"],
     )
     return {
         "filename": orig_name,
@@ -528,7 +536,7 @@ async def apply_open_edits(
         "velox_docx": str(velox_path),
         "audit_json": result.audit_json,
         "audit_html": result.audit_html,
-        "payload": result.payload(),
+        "payload": payload,
         "history": history,
     }
 
@@ -564,9 +572,13 @@ def load_history_for(manifest: dict) -> dict:
 @app.get("/api/download/{filename}")
 def download(filename: str):
     safe = Path(filename).name
-    for candidate in UPLOADS.rglob(safe):
-        return FileResponse(str(candidate), filename=safe)
-    raise HTTPException(status_code=404, detail="File not found")
+    matches = [c for c in UPLOADS.rglob(safe) if c.is_file()]
+    if not matches:
+        raise HTTPException(status_code=404, detail="File not found")
+    # Same basename can exist in several job dirs (e.g. *_velox.docx after
+    # open-apply); always serve the newest so a download is never stale.
+    newest = max(matches, key=lambda p: p.stat().st_mtime)
+    return FileResponse(str(newest), filename=safe)
 
 
 def _mount_frontend() -> None:
