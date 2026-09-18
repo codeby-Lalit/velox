@@ -256,3 +256,59 @@ The packaging MUST enforce:
 
 The packaging pipeline itself is part of the Definition of Done. The produced
 artifact must run without a development machine, build tools or internet.
+
+## R22 — Dark Neumorphism UI (Mandatory Design System)
+
+The UI MUST use **dark neumorphism** for control surfaces. This is a
+non-negotiable design rule for all future UI work:
+
+- Surface background: flat **#121212 → #1a1a1a** gradients on `#05070d` canvas.
+- **No borders** on controls — shape is conveyed by soft dual shadows:
+  - light shadow top-left (e.g. `#232323`/`#222222`),
+  - dark shadow bottom-right (e.g. `#0a0a0a`/`#0b0b0b`).
+- **Raised** controls use outward dual shadows; **pressed/active** controls use
+  inset dual shadows.
+- Accent colors (mint/aqua/iris) are reserved for status, primary actions and
+  focus, never as surface fills.
+
+Utility classes (`neu-raised`, `neu-raised-sm`, `neu-inset`, `neu-inset-sm`,
+`neu-chip`, `neu-base`) are defined in `frontend/src/index.css` — reuse them
+instead of inventing new shadow schemes.
+
+## R23 — Motion & Animation (Mandatory)
+
+All interactive elements MUST feel tactile, using **Framer Motion** springs:
+
+- `whileHover`: scale `1.02`
+- `whileTap`: scale `0.98`
+- spring transitions: stiffness `300`, damping `20`
+- list/step entrances may stagger at 0.04–0.08 s
+- avoid long linear tweens for buttons/cards; keep motion subtle (a UI is
+  functional first, decorative second)
+
+New floating "editor / history" surfaces should reuse `neu-raised`/`neu-inset`
+classes so the whole app stays visually consistent.
+
+## R24 — Human Edits Are Declared, Never Silent
+
+Manual edits in the editor (F110) replace document content by explicit human
+intent. An edit is only written to the output when the history/`.velox` record
+logs it, and integrity is reported as `pass` **only for declared edits**
+(R3). Any content change that was not declared must fail integrity — never
+silently rewrite (R3 / R5 / F208).
+
+## R25 — History Is Append-Only
+
+All edit history (F111) is **append-only**.
+
+- A restore to an older version MUST create a new version, never rewrite past
+  ones.
+- Version recovery requires the embedded original manuscript — the
+  `_velox.docx` format must carry `velox/original.docx` (F112).
+
+## R26 — Warning Surfacing Is Progressive
+
+Warnings are surfaced in batches — **10 at a time by default** with a "Show
+more" control — so large documents (R13) never render thousands of alerts at
+once. Pagination must be per-list (issues, edit panel, etc.) and preserve
+scroll context.

@@ -30,3 +30,49 @@ export async function processBatch({ files, profileId, signal }) {
   }
   return data;
 }
+
+export async function applyEdits({ jobId, edits, message }) {
+  const res = await fetch(`${API}/apply-edits`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job_id: jobId, edits, message }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.detail || `Apply edits failed (HTTP ${res.status})`);
+  }
+  return data;
+}
+
+export async function fetchHistory(jobId) {
+  const res = await fetch(`${API}/history/${encodeURIComponent(jobId)}`);
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.detail || `History unavailable (HTTP ${res.status})`);
+  }
+  return data;
+}
+
+export async function openVelox(file) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API}/open`, { method: "POST", body: form });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.detail || `Not a Circuit Networks .velox document (HTTP ${res.status})`);
+  }
+  return data;
+}
+
+export async function applyOpenEdits({ file, edits, message }) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("edits_json", JSON.stringify(edits));
+  form.append("message", message || "");
+  const res = await fetch(`${API}/open-apply`, { method: "POST", body: form });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.detail || `Restore failed (HTTP ${res.status})`);
+  }
+  return data;
+}

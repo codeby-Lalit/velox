@@ -44,22 +44,32 @@ The app runs at `127.0.0.1:8000` — all processing happens locally; nothing lea
 | F106 | Staged processing animation with cancel | **Done** |
 | F107 | Batch processing (up to 50 files in one request) | **Done** |
 | F108 | Sample manuscript corpus for regression testing | **Done** |
-| F109 | Processing metrics (elapsed time, word count, estimated pages) | **Done** |
-| R3 | Content never rewritten — integrity verified | **Done** |
+| F109 | Processing metrics (elapsed time, word count, peak memory) | **Done** |
+| F110 | Manual editor: text/role edits with live preview + inline auto/manual fixes | **Done** |
+| F111 | Append-only git-like version history (restore to any version) | **Done** |
+| F112 | Self-contained `.velox` DOCX (history + original embedded) + Open/Resume | **Done** |
+| F113 | Progressive warning pagination (10 at a time, "Show more") | **Done** |
+| R3 | Content never rewritten — integrity verified (declared edits only) | **Done** |
 | R11 | Path-traversal-safe upload isolation + file size cap | **Done** |
-| R13 | Linear O(n) audit builder (no quadratic algorithms) | **Done** |
+| R13 | Linear O(n) audits + 400+ page stress-tested (unstructured, tables, no-heading) | **Done** |
+| R22 | Dark Neumorphism design system (#121212 surfaces, dual shadows, no borders) | **Done** |
+| R23 | Framer Motion springs (whileTap 0.98, stiffness 300 / damping 20) | **Done** |
 
 ### React Frontend (premium UI)
 
-- Dark glassmorphism circuit-themed interface (Tailwind v4 + Framer Motion)
+- **Dark Neumorphism** circuit-themed interface (R22) — flat #121212 surfaces,
+  dual soft shadows, no borders — with Framer Motion springs (R23)
 - Staged pipeline animation with cancel support
 - Profile picker (F103)
 - Batch mode: multi-file dropzone → batch results table → drill into individual reports
-- Results dashboard: integrity badge, stats grid (words, pages, elapsed), Structure / Before-After / Issues / Review / Why tabs
-- Issues: Locate button that jumps to the corresponding element in the Structure view (F105)
+- Results dashboard: integrity badge, stats grid (words, pages, elapsed), Structure / Before-After / Issues / Review tabs
+- Issues: **progressive pagination** (10 at a time + "Show more", F113) and a Locate button that jumps to the element in Structure (F105)
 - Before/After (F104): two-column comparison of detected source style vs formatted target style
 - Review queue: accept, change type, reject-to-paragraph, then reprocess with decisions
-- SHA-256 fingerprint panel + download bar (DOCX, JSON, HTML)
+- **Editor (F110):** two-pane side-by-side — live preview updates as you type; inline warnings with one-click Auto-fix *and* full manual text + role editing; commit message; delta list for the last round
+- **History (F111):** git-like version trail with per-version diffs; select any version and Restore (append-only, R25)
+- **Deliverables (F112):** primary `*_velox.docx` download (history embedded, opens in Word too), plain DOCX, audit JSON/HTML; "Open .velox" restores full history from any machine/temp; "Resume editing / Restore" re-processes the embedded original deterministically (R14)
+- SHA-256 fingerprint panel + download bar
 
 ---
 
@@ -69,7 +79,7 @@ The app runs at `127.0.0.1:8000` — all processing happens locally; nothing lea
 velox/
 ├── backend/
 │   ├── src/circuit_networks/
-│   │   ├── api/main.py              # FastAPI + F107 batch endpoint
+│   │   ├── api/main.py              # FastAPI + F107 batch + F110/F111/F112 endpoints
 │   │   ├── core/                    # models, config, constants, pipeline
 │   │   ├── parser/docx_parser.py    # DOCX → DocumentModel
 │   │   ├── classifier/heading.py    # Deterministic classification
@@ -78,13 +88,20 @@ velox/
 │   │   ├── integrity/verify.py      # Content integrity (F008)
 │   │   ├── reports/audit.py         # Audit payload + JSON/HTML
 │   │   ├── review/queue.py          # Human review decisions
+│   │   ├── velox/                    # F112: .velox format (manifest + original)
+│   │   │   ├── package.py           #   zip part embed/read (R8-safe)
+│   │   │   └── history.py           #   F111 append-only version history
 │   │   ├── structure/               # StructureMap, hierarchy builder
 │   │   ├── cli.py                   # Offline CLI
 │   │   └── desktop.py               # PyInstaller entry point
-│   ├── tests/                       # 47 pytest tests including corpus regression
+│   ├── tests/                       # 56 pytest tests incl. 400+ page stress (F110/R13)
 │   └── pyproject.toml
 ├── frontend/
 │   ├── src/                         # React 18 + Vite + Tailwind v4 + Framer Motion
+│   │   ├── views/                   # Import / Processing / Results / Batch /
+│   │   │                            #   EditorView (F110) / OpenedView (F112)
+│   │   ├── components/              # DocPreview, EditPanel, HistoryTimeline, …
+│   │   └── lib/roles.js             # role types + client-side Auto-fix rules
 │   ├── dist/                        # Built static assets (served by backend)
 │   └── package.json
 ├── profiles/
@@ -187,10 +204,14 @@ cd backend
 python -m pytest tests -v
 ```
 
-Current count: **47 tests**, including:
+Current count: **56 tests**, including:
 - Parser, classifier, preflight, integrity, pipeline unit tests
-- API smoke tests: single-file, batch (**F107**), hostile filename (**R11**), review change (**F101**)
+- API smoke tests: single-file, batch (**F107**), hostile filename (**R11**), review change (**F101**),
+  apply-edits + history (**F110/F111**), open / reject-plain / restore roundtrip (**F112**)
 - Corpus regression (**F108**): all six sample manuscripts processed end-to-end with integrity pass
+- **400+ page stress (R13/F110):** three distinct manuscripts — unstructured random headings,
+  wall-of-text with zero headings, table-heavy — each ≥120k words, verified linear time,
+  zero content corruption, editing works on 400+ pages
 - Metrics/structure-view assertions (**F104/F109**)
 
 ---
@@ -223,9 +244,16 @@ The installer:
 | `/api/profiles` | GET | List available publisher profiles |
 | `/api/process` | POST | Process a single DOCX (multipart form) |
 | `/api/process-batch` | POST | Process multiple DOCX files (**F107**) |
+| `/api/apply-edits` | POST | Apply a full edit set + reprocess (F110/F111) |
+| `/api/history/{job_id}` | GET | Fetch the append-only version history (F111) |
+| `/api/open` | POST | Reopen a `*_velox.docx` and restore its manifest (F112) |
+| `/api/open-apply` | POST | Edit/restore a reopened `.velox` from its embedded original (F112) |
 | `/api/download/{filename}` | GET | Download output artifacts |
 
-Single-file response includes `payload.processing_stats` with `elapsed_ms`, `words`, `pages_estimate`, and `structure_view` for the Before/After tab.
+Single-file response includes `payload.processing_stats` with `elapsed_ms`,
+`words`, `pages_estimate`, `peak_memory_bytes`, and `structure_view` for the
+Before/After tab. Every processed job also returns `job_id`, `velox_docx`,
+`history`, and `payload.document_view` (ordered elements) for the editor (F110).
 
 ---
 

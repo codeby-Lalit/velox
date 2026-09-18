@@ -79,6 +79,7 @@ def build_audit_payload(
             )
         ],
         "structure_view": _structure_view(model, structure, profile),
+        "document_view": _document_view(model, structure),
         "preflight_issues": [issue.to_json() for issue in issues],
         "review": {
             "items": [
@@ -135,6 +136,50 @@ def build_audit_payload(
             "peak_memory_bytes": peak_memory_bytes,
         },
     }
+
+
+def _document_view(model: DocumentModel, structure: StructureMap) -> list[dict]:
+    """F110: ordered body elements for the side-by-side editor.
+
+    Every element in document order: paragraphs carry their (possibly edited)
+    text plus the classification, tables carry palced rows and cells.
+    """
+    pidx = 0  # python-docx paragraph pointer across the raw XML body
+    rows: list[dict] = []
+    for kind, idx in model.body_order:
+        if kind == "paragraph":
+            if pidx >= len(model.paragraphs):
+                continue
+            p = model.paragraphs[pidx]
+            pidx += 1
+            c = structure.get(("paragraph", idx)) or None
+            rows.append(
+                {
+                    "kind": "paragraph",
+                    "source_index": idx,
+                    "text": p.text or "",
+                    "original_text": p.original_text or "",
+                    "style_name": p.style_name,
+                    "element_type": c.element_type if c else C.E_PARAGRAPH,
+                    "confidence": round(c.confidence, 4) if c else None,
+                }
+            )
+        elif kind == "table":
+            t = model.tables[idx] if idx < len(model.tables) else None
+            if t is None:
+                continue
+            rows.append(
+                {
+                    "kind": "table",
+                    "source_index": idx,
+                    "element_type": C.E_TABLE,
+                    "rows": [
+                        [{"text": cell.text} for cell in row]
+                        for row in t.rows
+                    ],
+                }
+            )
+    return rows
 
 
 def _profile_summary(profile: ProfileConfig | None) -> dict:

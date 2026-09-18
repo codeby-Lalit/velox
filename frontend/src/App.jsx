@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { fetchProfiles, processDocument, processBatch } from "./lib/api";
+import {
+  fetchProfiles,
+  processDocument,
+  processBatch,
+  applyEdits,
+  openVelox,
+  applyOpenEdits,
+} from "./lib/api";
 import { AlertCircle, X } from "lucide-react";
 import ImportView from "./views/ImportView";
 import ProcessingView from "./views/ProcessingView";
 import ResultsView from "./views/ResultsView";
 import BatchResultsView from "./views/BatchResultsView";
+import EditorView from "./views/EditorView";
+import OpenedView from "./views/OpenedView";
 
 const STAGE_IDS = ["parse", "classify", "preflight", "format", "integrity", "report"];
 const STAGE_MS = 650;
@@ -14,7 +23,7 @@ export default function App() {
   const [profiles, setProfiles] = useState([]);
   const [files, setFiles] = useState([]);
   const [profileId, setProfileId] = useState("default");
-  const [phase, setPhase] = useState("idle"); // idle | processing | result | batch | error
+  const [phase, setPhase] = useState("idle"); // idle | processing | result | batch | error | editor | opened
   const [result, setResult] = useState(null);
   const [batchResults, setBatchResults] = useState([]);
   const [activeFile, setActiveFile] = useState(null);
@@ -22,6 +31,11 @@ export default function App() {
   const [decisions, setDecisions] = useState(new Map());
   const [stageIdx, setStageIdx] = useState(0);
   const [value, setValue] = useState(0);
+  const [openResult, setOpenResult] = useState(null);
+  const [openFile, setOpenFile] = useState(null);
+  const [restoringId, setRestoringId] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [editorSerial, setEditorSerial] = useState(0);
 
   const controllerRef = useRef(null);
   const timerRef = useRef(null);
@@ -136,6 +150,92 @@ export default function App() {
     setPhase("idle");
   }, [stopAnimation]);
 
+  const handleOpenVelox = useCallback(async (file) => {
+    setError(null);
+    setBusy(true);
+    try {
+      const data = await openVelox(file);
+      setOpenResult(data);
+      setOpenFile(file);
+      setPhase("opened");
+    } catch (err) {
+      setError(err.message || "Could not open .velox document");
+      setPhase("idle");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const handleEditorApply = useCallback(
+    async ({ edits, message }) => {
+      setBusy(true);
+      try {
+        if (!result?.job_id) throw new Error("Job context lost — reprocess the document first.");
+        const data = await applyEdits({ jobId: result.job_id, edits, message });
+        setResult(data);
+        setEditorSerial((s) => s + 1);
+        return data; // EditorView awaits to clear its submit spinner
+      } catch (err) {
+        setError(err.message || "Apply edits failed");
+        setPhase("error");
+        throw err;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [result]
+  );
+
+  const handleOpenedRestore = useCallback(
+    async ({ edits, message }) => {
+      if (!openFile) {
+        setError("Keep the .velox file in the app to restore — re-drop it first.");
+        setPhase("opened");
+        return;
+      }
+      setBusy(true);
+      setRestoringId(message);
+      try {
+        const data = await applyOpenEdits({ file: openFile, edits, message });
+        setResult(data);
+        setOpenResult(null);
+        setOpenFile(null);
+        setRestoringId(null);
+        setEditorSerial((s) => s + 1);
+        setPhase("editor");
+      } catch (err) {
+        setRestoringId(null);
+        setError(err.message || "Restore failed");
+        setPhase("opened");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [openFile]
+  );
+
+  const handleResumeEditing = useCallback(async () => {
+    if (!openFile) {
+      setError("Re-drop the .velox file to resume editing.");
+      setPhase("opened");
+      return;
+    }
+    setBusy(true);
+    try {
+      const data = await applyOpenEdits({ file: openFile, edits: [], message: "resumed editing" });
+      setResult(data);
+      setOpenResult(null);
+      setOpenFile(null);
+      setEditorSerial((s) => s + 1);
+      setPhase("editor");
+    } catch (err) {
+      setError(err.message || "Could not resume");
+      setPhase("opened");
+    } finally {
+      setBusy(false);
+    }
+  }, [openFile]);
+
   const processingLabel = useCallback(() => {
     if (files.length > 1) return `${files.length} manuscripts`;
     return files[0]?.name ?? "document.docx";
@@ -173,6 +273,8 @@ export default function App() {
               profileId={profileId}
               setProfileId={setProfileId}
               onStart={() => startProcess()}
+              onOpen={handleOpenVelox}
+              busy={busy}
             />
           </motion.div>
         )}
@@ -196,6 +298,38 @@ export default function App() {
             onReProcess={commitDecisions}
             onBack={() => (activeFile ? setPhase("batch") : setPhase("idle"))}
             onRunAgain={() => startProcess([], activeFile ? [activeFile] : undefined)}
+            onEdit={() => {
+              setEditorSerial((s) => s + 1);
+              setPhase("editor");
+            }}
+            busy={busy}
+          />
+        )}
+
+        {phase === "editor" && result && (
+          <EditorView
+            key={`editor-${result.job_id || result.payload.generated_at}-${editorSerial}`}
+            result={result}
+            onApply={handleEditorApply}
+            onBack={() => (result?.job_id ? setPhase("result") : setPhase("idle"))}
+            onRunAgain={() => startProcess([], activeFile ? [activeFile] : undefined)}
+            busy={busy}
+            restoringId={restoringId}
+          />
+        )}
+
+        {phase === "opened" && openResult && (
+          <OpenedView
+            openResult={openResult}
+            onBack={() => {
+              setOpenResult(null);
+              setOpenFile(null);
+              setPhase("idle");
+            }}
+            onRestore={handleOpenedRestore}
+            onResume={handleResumeEditing}
+            busy={busy}
+            restoringId={restoringId}
           />
         )}
 

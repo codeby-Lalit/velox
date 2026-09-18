@@ -33,6 +33,7 @@ class IntegrityReport:
     output_fingerprint: str = ""
     mismatches: list[dict] = field(default_factory=list)
     checked: dict = field(default_factory=dict)
+    declared_edits: int = 0  # intentional user text edits recorded (R4-aware)
 
     def to_json(self) -> dict:
         return {
@@ -47,6 +48,7 @@ class IntegrityReport:
             "output_fingerprint": self.output_fingerprint,
             "mismatches": self.mismatches,
             "checked": self.checked,
+            "declared_edits": self.declared_edits,
         }
 
 
@@ -104,7 +106,19 @@ def _fingerprint(joined: str) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
-def verify_integrity(source_path: str, output_path: str) -> IntegrityReport:
+def verify_integrity(
+    source_path: str,
+    output_path: str,
+    text_overrides: dict[int, str] | None = None,
+) -> IntegrityReport:
+    """Compare source and output content against the *intended* output.
+
+    ``text_overrides`` maps paragraph index -> intended new text for
+    user-driven edits (F110). Declared edits become the expected baseline, so
+    an output that matches them still passes integrity while every unintended
+    change is still flagged (R3/R4).
+    """
+    overrides = {int(k): v for k, v in (text_overrides or {}).items() if v is not None}
     report = IntegrityReport(status="pass")
     src_root = _read_document_xml(source_path)
     out_root = _read_document_xml(output_path)
@@ -114,6 +128,13 @@ def verify_integrity(source_path: str, output_path: str) -> IntegrityReport:
 
     src_para_texts, src_words, src_chars = src_lens
     out_para_texts, out_words, out_chars = out_lens
+
+    expected_paras = [
+        overrides.get(i, text) if i in overrides else text
+        for i, text in enumerate(src_paras)
+    ]
+    exp_joined, exp_words, exp_chars = _normalize(expected_paras)
+    report.declared_edits = len(overrides)
 
     src_cells = _extract_cell_texts(src_root)
     out_cells = _extract_cell_texts(out_root)
@@ -133,19 +154,20 @@ def verify_integrity(source_path: str, output_path: str) -> IntegrityReport:
         "word_count": True,
         "character_count": True,
         "fingerprint": True,
+        "declared_edits": len(overrides),
     }
 
-    if len(src_paras) != len(out_paras):
+    if len(expected_paras) != len(out_paras):
         report.status = "fail"
         report.mismatches.append(
             {
                 "kind": "paragraph_count",
-                "expected": len(src_paras),
+                "expected": len(expected_paras),
                 "actual": len(out_paras),
             }
         )
 
-    for i, (a, b) in enumerate(zip(src_paras, out_paras)):
+    for i, (a, b) in enumerate(zip(expected_paras, out_paras)):
         if a != b:
             report.status = "fail"
             report.mismatches.append(
@@ -169,30 +191,30 @@ def verify_integrity(source_path: str, output_path: str) -> IntegrityReport:
                 {"kind": "cell_text", "index": i, "expected": a[:200], "actual": b[:200]}
             )
 
-    if report.source_words != report.output_words:
+    if exp_words != report.output_words:
         report.status = "fail"
         report.mismatches.append(
             {
                 "kind": "word_count",
-                "expected": report.source_words,
+                "expected": exp_words,
                 "actual": report.output_words,
             }
         )
-    if report.source_chars != report.output_chars:
+    if exp_chars != report.output_chars:
         report.status = "fail"
         report.mismatches.append(
             {
                 "kind": "character_count",
-                "expected": report.source_chars,
+                "expected": exp_chars,
                 "actual": report.output_chars,
             }
         )
-    if report.source_fingerprint != report.output_fingerprint:
+    if _fingerprint(exp_joined) != report.output_fingerprint:
         report.status = "fail"
         report.mismatches.append(
             {
                 "kind": "fingerprint",
-                "expected": report.source_fingerprint[:16],
+                "expected": _fingerprint(exp_joined)[:16],
                 "actual": report.output_fingerprint[:16],
             }
         )

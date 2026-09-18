@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import tempfile
 import time
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 import uvicorn
@@ -20,6 +22,9 @@ from ..core.config import ProfileConfig
 from ..core.paths import frontend_dir, profiles_dir
 from ..core.pipeline import run_pipeline, version_string
 from ..review.queue import ReviewDecision
+from ..velox.history import append_version, initial_history, load_history
+
+from ..velox.package import embed_manifest, embed_original, read_manifest, read_original
 
 _TEMP_MAX_AGE_SECONDS = 24 * 60 * 60  # sweep job dirs older than 24h
 
@@ -71,6 +76,19 @@ class ReviewRequest(BaseModel):
 class ProcessRequest(BaseModel):
     profile_id: str = "default"
     reviews: list[ReviewRequest] = []
+
+
+class EditItem(BaseModel):
+    kind: str = "paragraph"  # "paragraph" (text/role edits)
+    source_index: int
+    text: str | None = None
+    element_type: str | None = None
+
+
+class ApplyEditsRequest(BaseModel):
+    job_id: str
+    edits: list[EditItem] = []
+    message: str = ""
 
 
 @app.get("/api/health")
@@ -181,13 +199,21 @@ async def _process_upload(
             "stage": result.stage,
         }
 
+    _save_job_meta(job_dir, profile_id=profile_id, filename=safe_name)
+    _save_reviews(job_dir, review_json)
+    velox_path, history = _finalize_velox(
+        job_dir, result, profile_id=profile_id, message="Automatic formatting", edits=[]
+    )
     return {
         "filename": safe_name,
+        "job_id": job_dir.name,
         "integrity_status": result.integrity_status,
         "output_docx": result.output_docx,
+        "velox_docx": str(velox_path),
         "audit_json": result.audit_json,
         "audit_html": result.audit_html,
         "payload": result.payload(),
+        "history": history,
     }
 
 
@@ -216,6 +242,323 @@ def _parse_reviews(review_json: str) -> list[ReviewDecision]:
             )
         )
     return decisions
+
+
+# ---------------------------------------------------------------- F110 Job state
+_VALID_JOB_ID = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def _resolve_job_dir(job_id: str) -> Path:
+    """Resolve a client-supplied job id inside the UPLOADS root (R11-safe)."""
+    if not job_id or ".." in job_id or not _VALID_JOB_ID.match(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job id")
+    candidate = (UPLOADS / job_id).resolve()
+    root = UPLOADS.resolve()
+    if root not in candidate.parents:
+        raise HTTPException(status_code=400, detail="Invalid job id")
+    if not candidate.is_dir():
+        raise HTTPException(status_code=404, detail="Job not found")
+    return candidate
+
+
+def _save_job_meta(job_dir: Path, profile_id: str, filename: str) -> None:
+    (job_dir / "job.json").write_text(
+        json.dumps({"profile_id": profile_id, "filename": filename}),
+        encoding="utf-8",
+    )
+
+
+def _load_job_meta(job_dir: Path) -> dict:
+    try:
+        return json.loads((job_dir / "job.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_reviews(job_dir: Path, review_json: str) -> None:
+    try:
+        items = json.loads(review_json)
+    except json.JSONDecodeError:
+        items = []
+    (job_dir / "reviews.json").write_text(
+        json.dumps(items, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def _load_reviews(job_dir: Path) -> list[ReviewDecision]:
+    try:
+        items = json.loads((job_dir / "reviews.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        items = []
+    return [
+        ReviewDecision(
+            source_index=item.get("source_index", -1),
+            action=item.get("action", "accept"),
+            new_element_type=item.get("new_element_type"),
+        )
+        for item in items
+    ]
+
+
+def _load_edits(job_dir: Path) -> list[dict]:
+    try:
+        return json.loads((job_dir / "edits.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _finalize_velox(
+    job_dir: Path,
+    result,
+    profile_id: str,
+    message: str,
+    edits: list[dict],
+) -> tuple[Path, dict]:
+    """Copy the formatted docx, embed the manifest, and record a history version."""
+    base = Path(result.model.source_path).stem
+    velox = job_dir / f"{base}_velox.docx"
+    shutil.copyfile(result.output_docx, velox)
+
+    history = load_history(str(job_dir / "history.json"))
+    if not history["source"]:
+        history["source"] = {
+            "filename": Path(result.model.source_path).name,
+            "size_bytes": getattr(result.model, "source_size_bytes", None),
+            "sha256": getattr(result.model, "source_sha256", None),
+        }
+    stats = result.payload()["processing_stats"]
+    append_version(history, message, edits, result.integrity_status, stats)
+    (job_dir / "history.json").write_text(
+        json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    manifest = {
+        "format": "circuit-networks-velox",
+        "engine": version_string(),
+        "profile": profile_id,
+        "source": history["source"],
+        "history": history["versions"],
+        "integrity_status": result.integrity_status,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    orig = Path(result.model.source_path)
+    if orig.is_file():
+        manifest["has_original"] = True
+    embed_manifest(str(velox), manifest)
+    if orig.is_file():
+        embed_original(str(velox), orig.read_bytes())
+    return velox, history
+
+
+@app.post("/api/apply-edits")
+def apply_edits(req: ApplyEditsRequest):
+    """F110: apply the user's full working edit set and reprocess the job."""
+    job_dir = _resolve_job_dir(req.job_id)
+    meta = _load_job_meta(job_dir)
+    profile = _load_profile(meta.get("profile_id", "default"))
+    source = job_dir / meta.get("filename", "")
+    if not source.is_file():
+        raise HTTPException(status_code=404, detail="Source file not found")
+
+    # The client always submits its full current edit set (replace semantics),
+    # so restore/undo maps 1:1 to a working set per version (F111).
+    edits_list = _merge_edits(req.edits)
+    (job_dir / "edits.json").write_text(
+        json.dumps(edits_list, ensure_ascii=False), encoding="utf-8"
+    )
+
+    result = run_pipeline(
+        str(source),
+        profile,
+        output_dir=str(job_dir),
+        decisions=_load_reviews(job_dir),
+        edits=edits_list,
+    )
+    if result.error:
+        raise HTTPException(status_code=500, detail=result.error)
+
+    message = req.message or _default_edit_message(edits_list)
+    velox_path, history = _finalize_velox(
+        job_dir, result, profile_id=meta.get("profile_id", "default"), message=message,
+        edits=edits_list,
+    )
+    return {
+        "filename": meta.get("filename", ""),
+        "job_id": job_dir.name,
+        "integrity_status": result.integrity_status,
+        "output_docx": result.output_docx,
+        "velox_docx": str(velox_path),
+        "audit_json": result.audit_json,
+        "audit_html": result.audit_html,
+        "payload": result.payload(),
+        "history": history,
+    }
+
+
+def _merge_edits(req_edits: list[EditItem]) -> list[dict]:
+    merged: dict[tuple[str, int], dict] = {}
+    for e in req_edits:
+        merged[(e.kind, e.source_index)] = {
+            "kind": e.kind,
+            "source_index": e.source_index,
+            "text": e.text,
+            "element_type": e.element_type,
+        }
+    return [
+        merged[key]
+        for key in sorted(merged, key=lambda k: (0 if k[0] == "paragraph" else 1, k[1]))
+    ]
+
+
+def _default_edit_message(edits: list[dict]) -> str:
+    text = sum(1 for e in edits if e.get("text") is not None)
+    roles = sum(1 for e in edits if e.get("element_type") is not None)
+    parts = []
+    if text:
+        parts.append(f"{text} text edit{'s' if text != 1 else ''}")
+    if roles:
+        parts.append(f"{roles} role change{'s' if roles != 1 else ''}")
+    return "Applied edits" + (f": {', '.join(parts)}" if parts else "")
+
+
+@app.get("/api/history/{job_id}")
+def get_history(job_id: str):
+    job_dir = _resolve_job_dir(job_id)
+    history = load_history(str(job_dir / "history.json"))
+    meta = _load_job_meta(job_dir)
+    return {"job_id": job_dir.name, "filename": meta.get("filename", ""), "history": history}
+
+
+@app.post("/api/open")
+async def open_velox(file: UploadFile = File(...)):
+    """F112: reopen a *_velox.docx and restore its manifest (history, profile)."""
+    safe_name = _safe_filename(file.filename or "")
+    if not safe_name.lower().endswith(".docx"):
+        raise HTTPException(status_code=400, detail="File must be .docx")
+    tmp = Path(tempfile.mkdtemp(prefix="circuit-networks-open-")) / safe_name
+    tmp.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with tmp.open("wb") as fh:
+            while chunk := file.file.read(1024 * 1024):
+                fh.write(chunk)
+        manifest = read_manifest(str(tmp))
+    finally:
+        shutil.rmtree(tmp.parent, ignore_errors=True)
+    if manifest is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Not a Circuit Networks document — no .velox manifest embedded. Process it first.",
+        )
+    return {
+        "filename": safe_name,
+        "manifest": manifest,
+        "history": load_history_for(manifest),
+    }
+
+
+@app.post("/api/open-apply")
+async def apply_open_edits(
+    file: UploadFile = File(...),
+    edits_json: str = Form("[]"),
+    message: str = Form(""),
+):
+    """F112: edit a re-opened *_velox.docx.
+
+    The embedded original manuscript is re-processed with the submitted
+    (cumulative) edit set, so restore to any past version is reproducible and
+    integrity-safe (R3 / R14).  History carries over from the opened file.
+    """
+    safe_name = _safe_filename(file.filename or "")
+    if not safe_name.lower().endswith(".docx"):
+        raise HTTPException(status_code=400, detail="File must be .docx")
+    tmp = Path(tempfile.mkdtemp(prefix="circuit-networks-open-")) / safe_name
+    tmp.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with tmp.open("wb") as fh:
+            while chunk := file.file.read(1024 * 1024):
+                fh.write(chunk)
+        manifest = read_manifest(str(tmp))
+        if manifest is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Not a Circuit Networks document — no .velox manifest embedded. Process it first.",
+            )
+        original_bytes = read_original(str(tmp))
+        if original_bytes is None:
+            raise HTTPException(
+                status_code=400,
+                detail="This .velox document has no embedded original — restore is unavailable.",
+            )
+        edits_items = _parse_edit_items(edits_json)
+    finally:
+        shutil.rmtree(tmp.parent, ignore_errors=True)
+
+    job_dir = UPLOADS / f"open-{uuid.uuid4().hex[:8]}"
+    job_dir.mkdir(parents=True, exist_ok=True)
+    orig_name = _safe_filename(
+        (manifest.get("source") or {}).get("filename") or "original.docx"
+    ) or "original.docx"
+    original = job_dir / orig_name
+    original.write_bytes(original_bytes)
+
+    edits_list = _merge_edits(edits_items)
+    (job_dir / "edits.json").write_text(
+        json.dumps(edits_list, ensure_ascii=False), encoding="utf-8"
+    )
+    profile = _load_profile(manifest.get("profile", "default"))
+    result = run_pipeline(str(original), profile, output_dir=str(job_dir), edits=edits_list)
+    if result.error:
+        raise HTTPException(status_code=500, detail=result.error)
+
+    _save_job_meta(job_dir, profile_id=profile.id, filename=orig_name)
+    seeded = initial_history(manifest.get("source") or {})
+    for entry in manifest.get("history", []) or []:
+        seeded.setdefault("versions", []).append(entry)
+    (job_dir / "history.json").write_text(
+        json.dumps(seeded, ensure_ascii=False), encoding="utf-8"
+    )
+    msg = message or _default_edit_message(edits_list)
+    velox_path, history = _finalize_velox(
+        job_dir, result, profile_id=profile.id, message=msg, edits=edits_list
+    )
+    return {
+        "filename": orig_name,
+        "job_id": job_dir.name,
+        "integrity_status": result.integrity_status,
+        "output_docx": result.output_docx,
+        "velox_docx": str(velox_path),
+        "audit_json": result.audit_json,
+        "audit_html": result.audit_html,
+        "payload": result.payload(),
+        "history": history,
+    }
+
+
+def _parse_edit_items(edits_json: str) -> list[EditItem]:
+    try:
+        raw = json.loads(edits_json)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid edits payload")
+    items = []
+    for r in raw if isinstance(raw, list) else []:
+        if not isinstance(r, dict):
+            continue
+        items.append(
+            EditItem(
+                kind=str(r.get("kind", "paragraph")),
+                source_index=int(r.get("source_index", -1)),
+                text=r.get("text"),
+                element_type=r.get("element_type"),
+            )
+        )
+    return items
+
+
+def load_history_for(manifest: dict) -> dict:
+    history = initial_history(manifest.get("source") or {})
+    for entry in manifest.get("history", []) or []:
+        history.setdefault("versions", []).append(entry)
+    history["engine"] = manifest.get("engine", history["engine"])
+    return history
 
 
 @app.get("/api/download/{filename}")

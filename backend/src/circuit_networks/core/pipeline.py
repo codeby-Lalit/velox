@@ -73,8 +73,16 @@ def run_pipeline(
     profile: ProfileConfig,
     output_dir: str | None = None,
     decisions: list[ReviewDecision] | None = None,
+    edits: list[dict] | None = None,
 ) -> PipelineResult:
-    """Run the full offline manuscript pipeline for one DOCX file."""
+    """Run the full offline manuscript pipeline for one DOCX file.
+
+    ``edits`` (F110) are user-driven manual changes: each item is
+    ``{"kind": "paragraph", "source_index": i, "text": ..., "element_type": ...}``
+    and may carry a text replacement, a role change, or both.
+    """
+    text_overrides = _text_overrides(edits)
+    role_decisions = _role_decisions(edits)
     workdir = output_dir or tempfile.mkdtemp(prefix="circuit-networks-")
     Path(workdir).mkdir(parents=True, exist_ok=True)
     base = Path(source_path).stem
@@ -94,9 +102,14 @@ def run_pipeline(
         structure = classify_document(model)
         result.structure = structure
 
-        if decisions:
+        if role_decisions or decisions:
             result.stage = "review"
-            result.structure = apply_decisions(structure, decisions)
+            merged = list(decisions or []) + role_decisions
+            result.structure = apply_decisions(structure, merged)
+
+        if text_overrides:
+            result.stage = "edits"
+            _apply_text_overrides(model, text_overrides)
 
         result.stage = "preflight"
         result.issues = run_preflight(model, result.structure)
@@ -104,12 +117,19 @@ def run_pipeline(
         result.stage = "format"
         output_docx = str(Path(workdir) / f"{base}_publication_ready.docx")
         format_document(
-            source_path, output_docx, profile, model, result.structure
+            source_path,
+            output_docx,
+            profile,
+            model,
+            result.structure,
+            text_overrides=text_overrides,
         )
         result.output_docx = output_docx
 
         result.stage = "integrity"
-        result.integrity = verify_integrity(source_path, output_docx)
+        result.integrity = verify_integrity(
+            source_path, output_docx, text_overrides=text_overrides
+        )
         result.integrity_status = result.integrity.status
 
         result.elapsed_ms = int((time.perf_counter() - started) * 1000)
@@ -129,6 +149,38 @@ def run_pipeline(
         result.peak_memory_bytes = tracemalloc.get_traced_memory()[1]
         if tracemalloc.is_tracing():
             tracemalloc.stop()
+
+
+def _text_overrides(edits: list[dict] | None) -> dict[int, str]:
+    out: dict[int, str] = {}
+    for e in edits or []:
+        if e.get("kind", "paragraph") == "paragraph" and e.get("text") is not None:
+            out[int(e.get("source_index", -1))] = e["text"]
+    return out
+
+
+def _role_decisions(edits: list[dict] | None) -> list[ReviewDecision]:
+    from ..review.queue import ReviewDecision
+
+    decisions: list[ReviewDecision] = []
+    for e in edits or []:
+        if e.get("kind", "paragraph") == "paragraph" and e.get("element_type"):
+            decisions.append(
+                ReviewDecision(
+                    source_index=int(e.get("source_index", -1)),
+                    action="change",
+                    new_element_type=e["element_type"],
+                )
+            )
+    return decisions
+
+
+def _apply_text_overrides(model, overrides: dict[int, str]) -> None:
+    by_index = {p.index: p for p in model.paragraphs}
+    for idx, text in overrides.items():
+        p = by_index.get(idx)
+        if p is not None:
+            p.text = text
 
 
 def version_string() -> str:

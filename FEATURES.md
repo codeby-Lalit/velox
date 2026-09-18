@@ -179,6 +179,10 @@ Reasons:
 ✓ Similarity to neighboring headings
 ```
 
+> Status note: the standalone "Why" tab was removed (UI decision). Reason codes
+> and confidence remain in the audit payload, the inline review queue (F101)
+> and the classification panel data; explainability is not lost.
+
 ### F103 — Publisher Profile Manager
 
 Allow multiple local profiles.
@@ -256,6 +260,49 @@ Track locally:
 - integrity status
 
 ---
+
+### F110 — Manual Editor With Live Preview (P1)
+
+A two-pane editor where:
+- **left pane**: live preview of the formatted document, updated on every
+  keystroke
+- **right pane**: per-paragraph editing (manual text change + role select) with
+  inline warnings showing both an Auto-fix button (for supported rules) and full
+  manual control (R22 / R23 neumorphism UI)
+
+Constraints:
+- edits are **declared** and cumulative — the editor submits its full current
+  edit set on every apply (replace semantics, R24)
+- integrity passes only for declared edits
+- 10 warnings at a time with progressive disclosure (R26)
+
+### F111 — Git-Like Version History (P1)
+
+An append-only edit timeline (v1 → v2 → …) visible in both the editor and the
+results view:
+- each version records: message, cumulative edits, integrity status, elapsed
+- restore to any past version creates a new version (R25) — nothing is erased
+- diff between any two adjacent versions is displayed inline
+
+### F112 — Self-Contained `.velox` Document (P1)
+
+A `.velox` document is a standard Word `.docx` with two extra ZIP parts:
+- `velox/manifest.json` — engine, profile, history (F111), integrity status
+- `velox/original.docx` — the raw pre-format manuscript bytes (F112 restore)
+
+User-facing behavior:
+- primary download is `*_velox.docx`; a plain DOCX is also available
+- "Open .velox" button reopens the file and restores full history (F112)
+- "Resume editing" re-processes the embedded original with the latest version's
+  edits, producing a new editor session without re-uploading (R25)
+- restoring to an older version via the history timeline re-applies that
+  version's cumulative edits to the embedded original (R14 deterministic)
+
+### F113 — Warning Pagination (P1)
+
+All warning lists (preflight issues, edit-panel warnings) display **10 items at
+a time** with a "Show more" button (R26). The total count and remaining count
+are always visible to keep the user informed on large documents (R13).
 
 ## P2 — Advanced Features
 

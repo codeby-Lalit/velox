@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Play, Zap, WifiOff, Cpu, ShieldCheck } from "lucide-react";
+import { Play, Zap, WifiOff, Cpu, ShieldCheck, FolderOpen } from "lucide-react";
 import Dropzone from "../components/Dropzone";
 import { Badge } from "../components/ui/badge";
 import BrandMark from "../components/BrandMark";
@@ -9,7 +9,16 @@ const fadeUp = {
   show: (i = 0) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.5, ease: "easeOut" } }),
 };
 
-export default function ImportView({ files, onFiles, profiles, profileId, setProfileId, onStart, busy }) {
+export default function ImportView({
+  files,
+  onFiles,
+  profiles,
+  profileId,
+  setProfileId,
+  onStart,
+  onOpen,
+  busy,
+}) {
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10 sm:py-16">
       {/* Header */}
@@ -119,6 +128,55 @@ export default function ImportView({ files, onFiles, profiles, profileId, setPro
               ? `Ready to process "${files[0].name}"`
               : `${files.length} manuscripts ready for batch processing (F107)`}
         </p>
+      </motion.div>
+
+      {/* Open an existing .velox document (F112) */}
+      <motion.div
+        variants={fadeUp}
+        initial="hidden"
+        animate="show"
+        custom={5}
+        className="mx-auto mt-10 max-w-2xl"
+      >
+        <div className="neu-raised rounded-3xl p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-white">Open a .velox document</h3>
+              <p className="text-xs text-slate-500">
+                Resume editing a <span className="font-mono">*_velox.docx</span> — full history restored (F112)
+              </p>
+            </div>
+            <Badge tone="accent" dot={false}>F112</Badge>
+          </div>
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const f = e.dataTransfer?.files?.[0];
+              if (f) onOpen(f);
+            }}
+            className="cursor-pointer rounded-2xl border-2 border-dashed border-slate-600/60 p-4 transition-colors hover:border-aqua-400/50"
+          >
+            <input
+              id="velox-open-file"
+              type="file"
+              accept=".docx"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onOpen(f);
+                e.target.value = "";
+              }}
+              className="hidden"
+            />
+            <label htmlFor="velox-open-file" className="flex cursor-pointer items-center gap-3">
+              <FolderOpen className="h-5 w-5 text-aqua-300" />
+              <span className="text-[13px] text-slate-300">
+                Drop your <span className="font-mono text-aqua-300">_velox.docx</span> here or{" "}
+                <span className="font-semibold text-white underline underline-offset-2">browse</span>
+              </span>
+            </label>
+          </div>
+        </div>
       </motion.div>
     </div>
   );

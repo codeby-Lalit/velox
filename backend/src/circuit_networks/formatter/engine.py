@@ -169,8 +169,13 @@ def format_document(
     profile: ProfileConfig,
     model: DocumentModel,
     structure: StructureMap,
+    text_overrides: dict[int, str] | None = None,
 ) -> None:
-    """Produce output_path from a copy of source_path with profile formatting."""
+    """Produce output_path from a copy of source_path with profile formatting.
+
+    ``text_overrides`` maps paragraph index -> intended text for user-driven
+    edits (F110). Only explicitly edited paragraphs are rewritten; everything
+    else stays byte-preserved from the source copy (R3/R8)."""
     output_path = str(Path(output_path))
     shutil.copyfile(source_path, output_path)
 
@@ -189,6 +194,8 @@ def format_document(
             classification = structure.get(idx)
             paragraph = paragraphs[para_index]
             para_index += 1
+            if text_overrides and idx in text_overrides:
+                _replace_paragraph_text(paragraph, text_overrides[idx])
             if classification is None or not paragraph.text and not paragraph.runs:
                 continue
             if classification.element_type in _TYPE_TO_HEADING_STYLE:
@@ -204,3 +211,14 @@ def format_document(
             table_index += 1
 
     document.save(output_path)
+
+
+def _replace_paragraph_text(paragraph: Paragraph, text: str) -> None:
+    """Rewrite a paragraph's runs with the edited text (user-driven, kept minimal)."""
+    runs = paragraph.runs
+    if runs:
+        runs[0].text = text
+        for run in runs[1:]:
+            run.text = ""
+    else:
+        paragraph.add_run(text)

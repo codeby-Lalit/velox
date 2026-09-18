@@ -4,13 +4,13 @@ import {
   ListTree,
   AlertTriangle,
   ClipboardCheck,
-  Sparkles,
   Download,
   FileJson,
   FileText,
   ArrowLeft,
   RefreshCw,
   ArrowLeftRight,
+  PenLine,
 } from "lucide-react";
 import { cn, downloadUrl } from "../lib/utils";
 import IntegrityBanner from "../components/IntegrityBanner";
@@ -18,7 +18,6 @@ import StatsGrid from "../components/StatsGrid";
 import StructureTree from "../components/StructureTree";
 import IssuesList from "../components/IssuesList";
 import ReviewQueue from "../components/ReviewQueue";
-import ClassificationPanel from "../components/ClassificationPanel";
 import CompareView from "../components/CompareView";
 import MetaPanel from "../components/MetaPanel";
 import { Badge } from "../components/ui/badge";
@@ -28,7 +27,6 @@ const TABS = [
   { id: "compare", label: "Before/After", icon: ArrowLeftRight, sub: "F104 · detect → format" },
   { id: "issues", label: "Issues", icon: AlertTriangle, sub: "Preflight findings" },
   { id: "review", label: "Review", icon: ClipboardCheck, sub: "F101 · editor decisions" },
-  { id: "decisions", label: "Why", icon: Sparkles, sub: "Explainable reasons" },
 ];
 
 export default function ResultsView({
@@ -39,6 +37,7 @@ export default function ResultsView({
   onReProcess,
   onBack,
   onRunAgain,
+  onEdit,
   busy,
 }) {
   const [tab, setTab] = useState("structure");
@@ -74,7 +73,6 @@ export default function ResultsView({
   const reviewItems = payload.review?.items || [];
   const issues = payload.preflight_issues || [];
   const outline = payload.structure_outline || [];
-  const classifications = payload.classifications || [];
   const compareRows = payload.structure_view?.rows || [];
   const base = (payload.source?.path || "").split(/[\\/]/).pop().replace(/\.docx$/i, "") || "output";
 
@@ -114,6 +112,13 @@ export default function ResultsView({
         >
           <RefreshCw className="h-3.5 w-3.5" /> Reprocess
         </button>
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={onEdit}
+          className="inline-flex h-9 items-center gap-2 rounded-xl bg-gradient-to-r from-mint-400 to-aqua-400 px-4 text-xs font-bold text-ink-950 hover:brightness-110"
+        >
+          <PenLine className="h-3.5 w-3.5" /> Edit & refine
+        </motion.button>
       </div>
 
       {/* Integrity */}
@@ -142,6 +147,15 @@ export default function ResultsView({
         >
           <FileJson className="h-3.5 w-3.5" /> Audit JSON
         </a>
+        {result?.velox_docx && (
+          <a
+            href={downloadUrl(result.velox_docx)}
+            title="Word document with embedded edit history (.velox)"
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-mint-400/15 px-3.5 text-xs font-semibold text-mint-300 hover:bg-mint-400/25"
+          >
+            <FileText className="h-3.5 w-3.5" /> Edit &amp; refine after download
+          </a>
+        )}
       </div>
 
       {/* Stats */}
@@ -241,12 +255,7 @@ export default function ResultsView({
                   />
                 </div>
               )}
-              {tab === "decisions" && (
-                <div className="glass rounded-2xl p-4">
-                  <ClassificationPanel classifications={classifications} />
-                </div>
-              )}
-            </motion.div>
+              </motion.div>
           </AnimatePresence>
         </div>
 

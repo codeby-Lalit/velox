@@ -103,3 +103,34 @@ body {
 ::selection {
   background: rgba(34, 211, 238, 0.25);
 }
+
+/* ---- Dark Neumorphism design system ----
+   Flat #121212/#1a1a1a surfaces, no borders, dual-directional soft shadows.
+   Raised (extrude) vs pressed (inset) states. */
+.neu-base {
+  background: linear-gradient(145deg, #1a1a1a 0%, #121212 100%);
+  border: 0;
+}
+.neu-raised {
+  background: linear-gradient(145deg, #1a1a1a 0%, #121212 100%);
+  box-shadow: 8px 8px 18px #0a0a0a, -8px -8px 18px #232323;
+}
+.neu-raised-sm {
+  background: linear-gradient(145deg, #1a1a1a 0%, #121212 100%);
+  box-shadow: 4px 4px 10px #0a0a0a, -4px -4px 10px #232323;
+}
+.neu-inset {
+  background: #161616;
+  box-shadow: inset 5px 5px 10px #0b0b0b, inset -5px -5px 10px #212121;
+}
+.neu-inset-sm {
+  background: #151515;
+  box-shadow: inset 3px 3px 7px #0b0b0b, inset -3px -3px 7px #202020;
+}
+.neu-soft {
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.8);
+}
+.neu-chip {
+  background: linear-gradient(145deg, #1c1c1c 0%, #141414 100%);
+  box-shadow: 3px 3px 8px #0a0a0a, -3px -3px 8px #222222, inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
