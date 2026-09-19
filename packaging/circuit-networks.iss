@@ -3,7 +3,7 @@
 ; Requires: PyInstaller bundle built first at dist\CircuitNetworks\
 
 #define MyAppName "Circuit Networks"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.2.0"
 #define MyAppPublisher "Circuit Networks"
 #define MyAppExeName "CircuitNetworks.exe"
 

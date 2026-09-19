@@ -112,7 +112,9 @@ def run_pipeline(
             _apply_text_overrides(model, text_overrides)
 
         result.stage = "preflight"
-        result.issues = run_preflight(model, result.structure)
+        result.issues = run_preflight(
+            model, result.structure, profile=profile, source_path=source_path
+        )
 
         result.stage = "format"
         output_docx = str(Path(workdir) / f"{base}_publication_ready.docx")

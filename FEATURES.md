@@ -304,6 +304,41 @@ All warning lists (preflight issues, edit-panel warnings) display **10 items at
 a time** with a "Show more" button (R26). The total count and remaining count
 are always visible to keep the user informed on large documents (R13).
 
+### F114 — Production Standard Profile (P1)
+
+A `production_standard` publisher profile applies publication-grade
+formatting: A4 with 1.52/1.52/1.97/1.96 cm margins plus a 1.0 cm gutter,
+footer page numbers, widowed-content control, page-break-before on top-level
+chapters/sections, Times New Roman 12pt justified body with 1.5 line spacing
+and 1.27 cm first-line indents, centered italic captions, horizontal-bordered
+tables with repeating headers and uncuttable rows, and hanging indents for
+lists and References. Marginal values are centimetres (never points).
+
+### F115 — Professional Publication Checks (P1)
+
+Strict-mode preflight (18 professional rules) validates structure (missing
+title, dangling headings, chapter/section numbering gaps, TOC / References /
+Abstract presence and Abstract word count), cleanliness (placeholders, double
+spaces, document metadata) and per-paragraph conformance to the active profile
+(font, size, indent, alignment, line spacing) plus DOCX section margins and
+page size. Every report exposes `rules_checked` (24), `accuracy_score` and
+per-category counts; every issue carries a `category` and best-effort page
+anchor.
+
+### F116 — Unified Split-Pane IDE (P1)
+
+A single-screen working surface replaces tab-hop review: resizable split pane
+with live issues left (35–40%) and the inline-editable document right
+(60–65%), severity-coded inline highlights, hover/click deep-linking, inline
+"Apply Fix" chips, optimistic live re-scoring, category/severity filters,
+Auto-Fix All and background "Apply & re-scan" — all dependency-free.
+
+### F117 — Desktop Single-Instance Guard (P1)
+
+A Windows named mutex plus a free-port scan keep relaunches (incl. installer
+[Run] hook and desktop-icon opens) crash-free: a second instance simply opens
+the running app and exits 0 (R27).
+
 ## P2 — Advanced Features
 
 ### F201 — Visual Layout Analysis

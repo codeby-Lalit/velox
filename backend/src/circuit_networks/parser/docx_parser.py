@@ -68,6 +68,25 @@ def _spacing_pt(value) -> float | None:
         return None
 
 
+def _line_spacing_value(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return round(float(value), 2)
+        return None
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _is_numbered_or_bulleted(paragraph: Paragraph) -> bool:
+    try:
+        ppr = paragraph._p.find(qn("w:pPr"))
+        return ppr is not None and ppr.find(qn("w:numPr")) is not None
+    except Exception:
+        return False
+
+
 def _resolve_style(doc: _Document, paragraph: Paragraph) -> str | None:
     try:
         style = paragraph.style
@@ -154,10 +173,12 @@ def _parse_paragraph(doc: _Document, paragraph: Paragraph, index: int) -> Paragr
         outline_level=_outline_level(paragraph, style_name),
         spacing_before=_spacing_pt(getattr(pf, "space_before", None)),
         spacing_after=_spacing_pt(getattr(pf, "space_after", None)),
+        line_spacing=_line_spacing_value(pf.line_spacing),
         first_line_indent=_spacing_pt(pf.first_line_indent),
         is_heading_style="heading" in (style_name or "").lower(),
         heading_level=heading_level,
         is_table=False,
+        is_list=_is_numbered_or_bulleted(paragraph),
     )
 
 

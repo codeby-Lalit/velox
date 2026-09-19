@@ -25,6 +25,7 @@ class SpacingSpec(BaseModel):
     after: float = 6.0
     line: float = 1.5
     first_line_indent: float = 0.0
+    widow_control: bool = True
 
 
 class ParagraphSpec(BaseModel):
@@ -35,6 +36,7 @@ class ParagraphSpec(BaseModel):
 class HeadingSpec(ParagraphSpec):
     font: FontSpec = Field(default_factory=lambda: FontSpec(name="Times New Roman", size=16, bold=True))
     keep_with_next: bool = True
+    page_break: bool = False
     alignment: str = "left"  # headings default to left, not justify
 
 
@@ -44,14 +46,44 @@ class SectionPageSpec(BaseModel):
     margins: dict[str, float] = Field(
         default_factory=lambda: {"top": 2.54, "bottom": 2.54, "left": 3.18, "right": 3.18}
     )
+    gutter: float = 0.0
+    footer_page_number: bool = False
 
 
 class TableSpec(BaseModel):
     style: str = "Table Grid"
     header_bold: bool = True
+    cant_split: bool = True
+    header_repeat: bool = True
+    borders: str = "grid"  # grid|horizontal (clean top/bottom/header separator lines only)
     cell_margins: dict[str, float] = Field(
         default_factory=lambda: {"top": 0.05, "bottom": 0.05, "left": 0.1, "right": 0.1}
     )
+
+
+class ListSpec(BaseModel):
+    """Professional bullet/numbered-list typography."""
+    enabled: bool = True
+    indent: float = 0.63
+    hanging: float = 0.63
+    item_spacing_before: float = 0.0
+    item_spacing_after: float = 3.0
+
+
+class ReferencesSpec(BaseModel):
+    """Scholarly back-matter typography (hanging indent, compact line)."""
+    enabled: bool = False
+    hanging_indent: float = 1.27
+    font_name: str = "Times New Roman"
+    font_size: float = 10.5
+    line_spacing: float = 1.15
+    heading_markers: tuple[str, ...] = ("references", "bibliography", "works cited", "literature")
+
+
+class StrictSpec(BaseModel):
+    """Toggle professional publication-level validation checks."""
+    enabled: bool = True
+    allowed_fonts: tuple[str, ...] = ("times new roman", "garamond", "georgia", "book antiqua", "libertinus")
 
 
 class ThresholdsSpec(BaseModel):
@@ -73,6 +105,9 @@ class ProfileConfig(BaseModel):
     captions: ParagraphSpec = Field(default_factory=lambda: ParagraphSpec(alignment="left"))
     headings: dict[str, HeadingSpec] = Field(default_factory=dict)
     tables: TableSpec = Field(default_factory=TableSpec)
+    lists: ListSpec = Field(default_factory=ListSpec)
+    references: ReferencesSpec = Field(default_factory=ReferencesSpec)
+    strict: StrictSpec = Field(default_factory=StrictSpec)
 
     def heading_spec(self, level: int) -> HeadingSpec:
         """Heading style for 0-based level with fallback to defaults."""

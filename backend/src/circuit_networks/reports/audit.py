@@ -14,10 +14,34 @@ from ..core.version import ENGINE_NAME, ENGINE_VERSION
 from ..core.models import DocumentModel
 from ..integrity.verify import IntegrityReport
 from ..preflight.engine import PreflightIssue
+from ..preflight.professional import PROFESSIONAL_RULES
 from ..structure.builder import outline
 from ..structure.model import StructureMap
 
 _WORDS_PER_PAGE = 300  # rough estimate for the pages_estimate metric (F109)
+
+_BASE_RULES = (
+    "hierarchy_jump",
+    "caption_without_heading",
+    "table_caption_without_table",
+    "duplicate_caption_number",
+    "low_confidence",
+    "no_headings",
+)
+_RULES_CHECKED = len(_BASE_RULES) + len(PROFESSIONAL_RULES)
+
+
+def _accuracy_score(issues: list[PreflightIssue]) -> float:
+    """Heuristic publication-readiness score (0-100), clamped."""
+    score = 100.0
+    for issue in issues:
+        if issue.severity == "error":
+            score -= 5.0
+        elif issue.severity == "warning":
+            score -= 2.0
+        else:
+            score -= 0.25
+    return max(0.0, min(100.0, round(score, 1)))
 
 
 def _iso_now() -> str:
@@ -112,6 +136,16 @@ def build_audit_payload(
             "preflight_warnings": sum(
                 1 for i in issues if i.severity == "warning"
             ),
+            "preflight_info": sum(
+                1 for i in issues if i.severity == "info"
+            ),
+            "rules_checked": _RULES_CHECKED,
+            "accuracy_score": _accuracy_score(issues),
+            "issue_categories": {
+                "formatting": sum(1 for i in issues if i.category == "formatting"),
+                "structure": sum(1 for i in issues if i.category == "structure"),
+                "suggestion": sum(1 for i in issues if i.category == "suggestion"),
+            },
             "words": _word_count(p.text for p in model.paragraphs)
             + sum(
                 _word_count(cell.text for row in t.rows for cell in row)

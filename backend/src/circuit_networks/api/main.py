@@ -36,7 +36,7 @@ async def _lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Circuit Networks", version="0.1.0", lifespan=_lifespan)
+app = FastAPI(title="Circuit Networks", version="0.2.0", lifespan=_lifespan)
 
 
 def _sweep_old_jobs() -> None:

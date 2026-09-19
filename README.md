@@ -49,6 +49,10 @@ The app runs at `127.0.0.1:8000` — all processing happens locally; nothing lea
 | F111 | Append-only git-like version history (restore to any version) | **Done** |
 | F112 | Self-contained `.velox` DOCX (history + original embedded) + Open/Resume | **Done** |
 | F113 | Progressive warning pagination (10 at a time, "Show more") | **Done** |
+| F114 | "Production Standard" profile: publisher-grade formatting (gutter, page numbers, widow control, chapter page breaks, reference hanging indents, horizontal table borders) | **Done** |
+| F115 | Professional publication checks (24 rules): structure gaps, placeholders, double spaces, font/size/indent/align/spacing vs profile, margin/page-size vs DOCX sections + accuracy score | **Done** |
+| F116 | Unified split-pane IDE: issues pane + inline document editor with live optimizations, resizable divider, hover deep-linking, Apply Fix chips, background re-audit, Apply & re-scan | **Done** |
+| F117 | Desktop single-instance guard + free-port fallback (second launch reuses the running app, never crashes) | **Done** |
 | R3 | Content never rewritten — integrity verified (declared edits only) | **Done** |
 | R11 | Path-traversal-safe upload isolation + file size cap | **Done** |
 | R13 | Linear O(n) audits + 400+ page stress-tested (unstructured, tables, no-heading) | **Done** |

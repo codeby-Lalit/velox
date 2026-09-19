@@ -11,9 +11,8 @@ import {
 import { AlertCircle, X } from "lucide-react";
 import ImportView from "./views/ImportView";
 import ProcessingView from "./views/ProcessingView";
-import ResultsView from "./views/ResultsView";
 import BatchResultsView from "./views/BatchResultsView";
-import EditorView from "./views/EditorView";
+import WorkspaceView from "./views/WorkspaceView";
 import OpenedView from "./views/OpenedView";
 
 const STAGE_IDS = ["parse", "classify", "preflight", "format", "integrity", "report"];
@@ -300,30 +299,16 @@ export default function App() {
           />
         )}
 
-        {phase === "result" && result && (
-          <ResultsView
-            key={result.payload.generated_at}
-            result={result}
-            decisions={decisions}
-            onDecision={handleDecision}
-            onResetDecisions={resetDecisions}
-            onReProcess={commitDecisions}
-            onBack={() => (activeFile ? setPhase("batch") : setPhase("idle"))}
-            onRunAgain={() => startProcess([], activeFile ? [activeFile] : undefined)}
-            onEdit={() => {
-              setEditorSerial((s) => s + 1);
-              setPhase("editor");
-            }}
-            busy={busy}
-          />
-        )}
-
-        {phase === "editor" && result && (
-          <EditorView
-            key={`editor-${result.job_id || result.payload.generated_at}-${editorSerial}`}
+        {(phase === "result" || phase === "editor") && result && (
+          <WorkspaceView
+            key={`ws-${result.job_id || result.payload.generated_at}-${editorSerial}`}
             result={result}
             onApply={handleEditorApply}
-            onBack={() => (result?.job_id ? setPhase("result") : setPhase("idle"))}
+            onBack={() => {
+              if (activeFile) setPhase("batch");
+              else if (phase === "editor" && result.job_id) setPhase("result");
+              else setPhase("idle");
+            }}
             onRunAgain={() => startProcess([], activeFile ? [activeFile] : undefined)}
             busy={busy}
             restoringId={restoringId}

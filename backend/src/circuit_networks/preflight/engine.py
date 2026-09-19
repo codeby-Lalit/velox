@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from ..core.config import ProfileConfig
 from ..core import constants as C
 from ..core.models import DocumentModel
 from ..structure.model import Classification, StructureMap
@@ -11,6 +12,10 @@ from ..structure.model import Classification, StructureMap
 SEVERITY_INFO = "info"
 SEVERITY_WARNING = "warning"
 SEVERITY_ERROR = "error"
+
+CATEGORY_STRUCTURE = "structure"
+CATEGORY_FORMATTING = "formatting"
+CATEGORY_SUGGESTION = "suggestion"
 
 
 @dataclass
@@ -20,6 +25,7 @@ class PreflightIssue:
     message: str
     source_index: int = -1
     details: dict = field(default_factory=dict)
+    category: str = CATEGORY_STRUCTURE
 
     def to_json(self) -> dict:
         return {
@@ -28,6 +34,7 @@ class PreflightIssue:
             "message": self.message,
             "source_index": self.source_index,
             "details": self.details,
+            "category": self.category,
         }
 
 
@@ -42,9 +49,15 @@ def _kind_weight(kind: str) -> int:
     return weights.get(kind, 99)
 
 
-def run_preflight(model: DocumentModel, structure: StructureMap) -> list[PreflightIssue]:
+def run_preflight(
+    model: DocumentModel,
+    structure: StructureMap,
+    profile: ProfileConfig | None = None,
+    source_path: str | None = None,
+) -> list[PreflightIssue]:
     issues: list[PreflightIssue] = []
     text_by_index = {p.index: p.text for p in model.paragraphs}
+    page_of = _build_page_estimator(model)
 
     ordered = [
         (kind, idx)
@@ -70,7 +83,8 @@ def run_preflight(model: DocumentModel, structure: StructureMap) -> list[Preflig
                         f"jumps from level {prev_weight} to level {weight}."
                     ),
                     source_index=idx,
-                    details={"jumped_from": prev_weight, "jumped_to": weight},
+                    details={"jumped_from": prev_weight, "jumped_to": weight, "page": page_of(idx)},
+                    category=CATEGORY_STRUCTURE,
                 )
             )
         prev_weight = weight
@@ -90,6 +104,8 @@ def run_preflight(model: DocumentModel, structure: StructureMap) -> list[Preflig
                             severity=SEVERITY_WARNING,
                             message="Caption found before any heading in the document.",
                             source_index=idx,
+                            details={"page": page_of(idx)},
+                            category=CATEGORY_STRUCTURE,
                         )
                     )
                 nxt = _next_body(model, idx)
@@ -100,11 +116,10 @@ def run_preflight(model: DocumentModel, structure: StructureMap) -> list[Preflig
                             severity=SEVERITY_WARNING,
                             message="Table caption is not directly followed by a table.",
                             source_index=idx,
+                            details={"page": page_of(idx)},
+                            category=CATEGORY_STRUCTURE,
                         )
                     )
-                num = _caption_num(c)
-                if num is not None:
-                    pass  # numbering continuity handled in duplicate check below
 
     # 3. Duplicate caption numbers within one type
     all_numbers: list[tuple[str, str]] = []
@@ -121,6 +136,7 @@ def run_preflight(model: DocumentModel, structure: StructureMap) -> list[Preflig
                     code="duplicate_caption_number",
                     severity=SEVERITY_WARNING,
                     message=f"Duplicate caption number '{subtype}' for {etype}.",
+                    category=CATEGORY_STRUCTURE,
                 )
             )
         counts.add(subtype)
@@ -136,7 +152,8 @@ def run_preflight(model: DocumentModel, structure: StructureMap) -> list[Preflig
                     f"{classification.confidence:.2f} requires review."
                 ),
                 source_index=classification.source_index,
-                details={"confidence": classification.confidence},
+                details={"confidence": classification.confidence, "page": page_of(classification.source_index)},
+                category=CATEGORY_SUGGESTION,
             )
         )
 
@@ -147,10 +164,38 @@ def run_preflight(model: DocumentModel, structure: StructureMap) -> list[Preflig
                 code="no_headings",
                 severity=SEVERITY_WARNING,
                 message="No headings detected; formatting will only apply body styles.",
+                category=CATEGORY_STRUCTURE,
             )
         )
 
+    # 6. Professional publication-level checks (profile-driven, R-series)
+    if profile is not None:
+        from .professional import run_professional_checks
+
+        issues.extend(run_professional_checks(model, structure, profile, page_of))
+
+    # 7. Section margin / page-size alignment with the profile (needs the DOCX)
+    if profile is not None and profile.strict.enabled and source_path:
+        from .professional import run_section_checks
+
+        issues.extend(run_section_checks(source_path, profile))
+
     return issues
+
+
+def _build_page_estimator(model: DocumentModel) -> callable:
+    words_before: dict[int, float] = {}
+    acc = 0.0
+    for kind, idx in model.body_order:
+        if kind == "paragraph":
+            p = next((x for x in model.paragraphs if x.index == idx), None)
+            acc += (p.word_count if p else 0) + 2
+            words_before[idx] = acc
+
+    def page_of(idx: int) -> int:
+        return 1 + int((words_before.get(idx, 0) or 0) // 300.0)
+
+    return page_of
 
 
 def _next_body(model: DocumentModel, paragraph_index: int) -> tuple[str, int] | None:

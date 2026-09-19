@@ -1,0 +1,120 @@
+{
+  "id": "production_standard",
+  "name": "Professional Publication Standard",
+  "description": "Full professional publication-level rules: A4 printed-page set-up, serif hierarchy, first-line indents, clean tables, list and references typography, plus strict publication validation checks.",
+  "schema_version": 1,
+  "thresholds": {
+    "auto": 0.9,
+    "review": 0.7
+  },
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 1.52,
+      "bottom": 1.52,
+      "left": 1.97,
+      "right": 1.96
+    },
+    "gutter": 1.0,
+    "footer_page_number": true
+  },
+  "fonts": {
+    "body": {
+      "name": "Times New Roman",
+      "size": 12.0,
+      "bold": false,
+      "italic": false
+    },
+    "caption": {
+      "name": "Times New Roman",
+      "size": 10.5,
+      "bold": false,
+      "italic": true
+    }
+  },
+  "body": {
+    "alignment": "justify",
+    "spacing": {
+      "before": 0.0,
+      "after": 6.0,
+      "line": 1.5,
+      "first_line_indent": 1.27,
+      "widow_control": true
+    }
+  },
+  "captions": {
+    "alignment": "center",
+    "spacing": {
+      "before": 6.0,
+      "after": 6.0,
+      "line": 1.15
+    }
+  },
+  "headings": {
+    "h0": {
+      "alignment": "center",
+      "font": { "name": "Times New Roman", "size": 22.0, "bold": true },
+      "spacing": { "before": 0, "after": 12.0, "line": 2.0 },
+      "keep_with_next": true
+    },
+    "h1": {
+      "alignment": "left",
+      "font": { "name": "Times New Roman", "size": 16.0, "bold": true },
+      "spacing": { "before": 12.0, "after": 6.0, "line": 1.15 },
+      "keep_with_next": true,
+      "page_break": true
+    },
+    "h2": {
+      "alignment": "left",
+      "font": { "name": "Times New Roman", "size": 12.0, "bold": true },
+      "spacing": { "before": 10.0, "after": 4.0, "line": 1.15 },
+      "keep_with_next": true,
+      "page_break": true
+    },
+    "h3": {
+      "alignment": "left",
+      "font": { "name": "Times New Roman", "size": 12.0, "bold": true, "italic": true },
+      "spacing": { "before": 8.0, "after": 4.0, "line": 1.15 },
+      "keep_with_next": true
+    },
+    "h4": {
+      "alignment": "left",
+      "font": { "name": "Times New Roman", "size": 12.0, "bold": true },
+      "spacing": { "before": 8.0, "after": 4.0, "line": 1.15 },
+      "keep_with_next": true
+    }
+  },
+  "tables": {
+    "style": "Table Grid",
+    "header_bold": true,
+    "cant_split": true,
+    "header_repeat": true,
+    "borders": "horizontal",
+    "cell_margins": {
+      "top": 0.05,
+      "bottom": 0.05,
+      "left": 0.1,
+      "right": 0.1
+    }
+  },
+  "lists": {
+    "enabled": true,
+    "indent": 0.63,
+    "hanging": 0.63,
+    "item_spacing_before": 0.0,
+    "item_spacing_after": 3.0
+  },
+  "references": {
+    "enabled": true,
+    "hanging_indent": 1.27,
+    "font_name": "Times New Roman",
+    "font_size": 10.5,
+    "line_spacing": 1.15,
+    "heading_markers": ["references", "bibliography", "works cited", "literature"]
+  },
+  "strict": {
+    "enabled": true,
+    "allowed_fonts": ["times new roman", "garamond", "georgia", "book antiqua", "libertinus"]
+  }
+}

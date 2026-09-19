@@ -312,3 +312,48 @@ Warnings are surfaced in batches — **10 at a time by default** with a "Show
 more" control — so large documents (R13) never render thousands of alerts at
 once. Pagination must be per-list (issues, edit panel, etc.) and preserve
 scroll context.
+
+## R27 — Desktop Single-Instance & Port Safety
+
+The packaged desktop app must never crash on a second launch.
+
+- A Windows named mutex (`Local\CircuitNetworks-SingleInstance`) guards the
+  process: a second instance detects the running app, opens its UI and exits
+  cleanly with code 0 instead of failing on an occupied bind address.
+- The launcher scans `127.0.0.1` from the default port upward for the first
+  free port and reports the real URL; it never assumes a fixed port is free.
+- The installer's `[Run]` hook may leave the first instance alive; the guard
+  makes every further launch (desktop icon) deterministic.
+
+## R28 — Professional Publication Ruleset (Production Standard)
+
+A dedicated `production_standard` publisher profile ships with a strict,
+publication-grade validation layer (R-series checks, all read-only):
+
+- Structure: missing_title, dangling_heading (heading under another heading or
+  document end — titles are never flagged), chapter_seq_gap, heading_num_gap,
+  toc_missing, references_missing, abstract_missing, abstract_word_count.
+- Cleanliness: placeholder_text (TODO/FIXME/TBD/Lorem…), double_space,
+  metadata_missing.
+- Formatting vs. profile: margin_mismatch, page_size_mismatch (source DOCX
+  sections), invalid_font, size_mismatch, indent_mismatch, align_mismatch,
+  spacing_mismatch.
+- Report: `rules_checked` (24), `accuracy_score` (100 − errors×5 − warnings×2
+  − info×0.25, clamped) and per-category issue counts are part of every
+  payload's `processing_stats`.
+- Every issue carries a `category` (`structure` / `formatting` / `suggestion`)
+  and a best-effort `page` anchor for editor deep-linking.
+
+Production formatting applies: gutter binding margin, footer page numbers,
+widow control, page-break-before for top-level chapters/sections, horizontal
+table borders with repeating headers and uncuttable rows, list hanging indents
+and a References hanging indent block. Marginal measures are centimetres —
+never interpreted as points.
+
+## R29 — Premium UI Effects
+
+The UI may use glassmorphism overlays, monochrome (ink/slate/iris) orbs,
+shimmer sweeps, count-up numbers and pulse accents. Effects are decoration —
+they must never block clicks, hurt readability, or change behavior. Inline
+editing surfaces must stay dependency-free (no Monaco/CodeMirror), reusing
+`contentEditable` and Framer Motion.

@@ -36,10 +36,12 @@ class ParagraphInfo:
     outline_level: int | None = None
     spacing_before: float | None = None
     spacing_after: float | None = None
+    line_spacing: float | None = None
     first_line_indent: float | None = None
     is_heading_style: bool = False
     heading_level: int | None = None
     is_table: bool = False
+    is_list: bool = False
 
     @property
     def word_count(self) -> int:

@@ -14,12 +14,13 @@ from docx import Document
 from docx.enum.section import WD_ORIENT
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Mm, Pt
 from docx.text.paragraph import Paragraph
 
 from ..core import constants as C
-from ..core.config import ProfileConfig
+from ..core.config import FontSpec, ParagraphSpec, ProfileConfig, SpacingSpec
 from ..core.models import DocumentModel
 from ..structure.model import Classification, StructureMap
 
@@ -65,7 +66,17 @@ def _apply_paragraph_format(paragraph: Paragraph, spec) -> None:
         except Exception:
             pass
     if spacing.first_line_indent:
-        pf.first_line_indent = Pt(spacing.first_line_indent)
+        pf.first_line_indent = Cm(spacing.first_line_indent)
+    if getattr(spec, "widow_control", True):
+        try:
+            pf.widow_control = True
+        except Exception:
+            pass
+    if getattr(spec, "page_break", False):
+        try:
+            pf.page_break_before = True
+        except Exception:
+            pass
     if spec.alignment in _ALIGNMENT:
         pf.alignment = _ALIGNMENT[spec.alignment]
     if getattr(spec, "keep_with_next", False):
@@ -75,10 +86,61 @@ def _apply_paragraph_format(paragraph: Paragraph, spec) -> None:
             pass
 
 
-def _apply_body_format(paragraph: Paragraph, profile: ProfileConfig) -> None:
+def _apply_body_format(
+    paragraph: Paragraph,
+    profile: ProfileConfig,
+    is_list: bool = False,
+) -> None:
     spec = profile.body
+    if is_list and profile.lists.enabled:
+        try:
+            pf = paragraph.paragraph_format
+            pf.left_indent = Cm(profile.lists.indent)
+            pf.first_line_indent = Cm(-profile.lists.hanging)
+            spec = ParagraphSpec(
+                alignment=spec.alignment,
+                spacing=SpacingSpec(
+                    before=profile.lists.item_spacing_before,
+                    after=profile.lists.item_spacing_after,
+                    line=spec.spacing.line,
+                    first_line_indent=0,
+                    widow_control=True,
+                ),
+            )
+        except Exception:
+            pass
     font_spec = profile.font_for("body", "Times New Roman", 12.0)
     _apply_paragraph_format(paragraph, spec)
+    for run in paragraph.runs:
+        _set_run_font(run, _ComposeFont(font_spec, run))
+
+
+def _is_list_paragraph(paragraph: Paragraph) -> bool:
+    try:
+        ppr = paragraph._p.find(qn("w:pPr"))
+        return ppr is not None and ppr.find(qn("w:numPr")) is not None
+    except Exception:
+        return False
+
+
+def _is_references_heading(text: str, profile: ProfileConfig) -> bool:
+    lowered = (text or "").strip().lower()
+    return any(marker in lowered for marker in profile.references.heading_markers)
+
+
+def _apply_references_format(paragraph: Paragraph, profile: ProfileConfig) -> None:
+    refs = profile.references
+    font_spec = FontSpec(name=refs.font_name, size=refs.font_size)
+    try:
+        pf = paragraph.paragraph_format
+        pf.left_indent = Cm(refs.hanging_indent)
+        pf.first_line_indent = Cm(-refs.hanging_indent)
+        pf.space_before = Pt(0)
+        pf.space_after = Pt(4)
+        pf.line_spacing = refs.line_spacing
+        pf.widow_control = True
+    except Exception:
+        pass
     for run in paragraph.runs:
         _set_run_font(run, _ComposeFont(font_spec, run))
 
@@ -124,6 +186,74 @@ def _apply_caption_format(paragraph: Paragraph, profile: ProfileConfig) -> None:
             _set_run_font(run, _ComposeFont(font_spec, run))
 
 
+def _set_row_cant_split(row) -> None:
+    try:
+        tr_pr = row._tr.get_or_add_trPr()
+        if tr_pr.find(qn("w:cantSplit")) is None:
+            tr_pr.append(OxmlElement("w:cantSplit"))
+    except Exception:
+        pass
+
+
+def _set_header_repeat(row) -> None:
+    try:
+        tr_pr = row._tr.get_or_add_trPr()
+        if tr_pr.find(qn("w:tblHeader")) is None:
+            tr_pr.append(OxmlElement("w:tblHeader"))
+    except Exception:
+        pass
+
+
+def _apply_horizontal_borders(table) -> None:
+    """Clean publication table: top/bottom rule + separator under header only."""
+    try:
+        tbl_pr = table._tbl.tblPr
+        borders = tbl_pr.find(qn("w:tblBorders"))
+        if borders is None:
+            borders = OxmlElement("w:tblBorders")
+            tbl_pr.append(borders)
+        for child in list(borders):
+            borders.remove(child)
+
+        def add(name: str, val: str) -> None:
+            el = OxmlElement(f"w:{name}")
+            el.set(qn("w:val"), val)
+            el.set(qn("w:sz"), "8")
+            el.set(qn("w:space"), "0")
+            el.set(qn("w:color"), "000000")
+            borders.append(el)
+
+        add("top", "single")
+        add("bottom", "single")
+        add("left", "none")
+        add("right", "none")
+        add("insideH", "none")
+        add("insideV", "none")
+    except Exception:
+        pass
+    if table.rows:
+        for cell in table.rows[0].cells:
+            try:
+                tc_pr = cell._tc.get_or_add_tcPr()
+                cell_borders = tc_pr.find(qn("w:tcBorders"))
+                if cell_borders is None:
+                    cell_borders = OxmlElement("w:tcBorders")
+                    tc_pr.append(cell_borders)
+                bottom = cell_borders.find(qn("w:bottom"))
+                if bottom is None:
+                    bottom = OxmlElement("w:bottom")
+                    cell_borders.append(bottom)
+                for k, v in (
+                    ("w:val", "single"),
+                    ("w:sz", "8"),
+                    ("w:space", "0"),
+                    ("w:color", "000000"),
+                ):
+                    bottom.set(qn(k), v)
+            except Exception:
+                pass
+
+
 def _apply_table_format(table, profile: ProfileConfig) -> None:
     table_spec = profile.tables
     try:
@@ -135,10 +265,19 @@ def _apply_table_format(table, profile: ProfileConfig) -> None:
     except Exception:
         pass
     if table.rows:
-        for cell in table.rows[0].cells:
-            for p in cell.paragraphs:
-                for run in p.runs:
-                    run.font.bold = True
+        header_row = table.rows[0]
+        if table_spec.header_bold:
+            for cell in header_row.cells:
+                for p in cell.paragraphs:
+                    for run in p.runs:
+                        run.font.bold = True
+        if table_spec.header_repeat:
+            _set_header_repeat(header_row)
+        if table_spec.borders == "horizontal":
+            _apply_horizontal_borders(table)
+        if table_spec.cant_split:
+            for row in table.rows:
+                _set_row_cant_split(row)
 
 
 def _apply_section_format(document: Document, profile: ProfileConfig) -> None:
@@ -151,6 +290,57 @@ def _apply_section_format(document: Document, profile: ProfileConfig) -> None:
         section.bottom_margin = Cm(page.margins.get("bottom", 2.54))
         section.left_margin = Cm(page.margins.get("left", 3.18))
         section.right_margin = Cm(page.margins.get("right", 3.18))
+        if page.gutter and page.gutter > 0:
+            try:
+                section._sectPr.pgMar.set(qn("w:gutter"), str(int(page.gutter * 567)))
+            except Exception:
+                pass
+        if page.footer_page_number:
+            _add_page_number_footer(section)
+
+
+def _add_page_number_footer(section) -> None:
+    """Bottom-center PAGE field on empty footers only (never clobber existing content)."""
+    try:
+        if section.footer.is_linked_to_previous:
+            return
+        if any(p.text.strip() for p in section.footer.paragraphs):
+            return
+    except Exception:
+        return
+    try:
+        section.footer.is_linked_to_previous = False
+        para = section.footer.paragraphs[0]
+        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = para.add_run()
+        r = run._r
+        begin = OxmlElement("w:fldChar")
+        begin.set(qn("w:fldCharType"), "begin")
+        instr = OxmlElement("w:instrText")
+        instr.set(qn("xml:space"), "preserve")
+        instr.text = " PAGE "
+        end = OxmlElement("w:fldChar")
+        end.set(qn("w:fldCharType"), "end")
+        r.append(begin)
+        r.append(instr)
+        r.append(end)
+        rpr = r.find(qn("w:rPr"))
+        if rpr is None:
+            rpr = OxmlElement("w:rPr")
+            r.insert(0, rpr)
+        font = rpr.find(qn("w:rFonts"))
+        if font is None:
+            font = OxmlElement("w:rFonts")
+            rpr.insert(0, font)
+        font.set(qn("w:ascii"), "Times New Roman")
+        font.set(qn("w:hAnsi"), "Times New Roman")
+        sz = rpr.find(qn("w:sz"))
+        if sz is None:
+            sz = OxmlElement("w:sz")
+            rpr.append(sz)
+        sz.set(qn("w:val"), "20")
+    except Exception:
+        pass
 
 
 def _page_dimensions(page):
@@ -187,6 +377,7 @@ def format_document(
 
     para_index = 0
     table_index = 0
+    in_references = False
     for kind, idx in model.body_order:
         if kind == "paragraph":
             if para_index >= len(paragraphs):
@@ -200,10 +391,14 @@ def format_document(
                 continue
             if classification.element_type in _TYPE_TO_HEADING_STYLE:
                 _apply_heading_format(paragraph, classification, profile)
+                if profile.references.enabled:
+                    in_references = _is_references_heading(paragraph.text, profile)
             elif classification.is_caption:
                 _apply_caption_format(paragraph, profile)
+            elif profile.references.enabled and in_references:
+                _apply_references_format(paragraph, profile)
             else:
-                _apply_body_format(paragraph, profile)
+                _apply_body_format(paragraph, profile, is_list=_is_list_paragraph(paragraph))
         elif kind == "table":
             if table_index >= len(tables):
                 continue
