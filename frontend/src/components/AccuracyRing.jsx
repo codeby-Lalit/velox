@@ -25,12 +25,12 @@ export default function AccuracyRing({ value = 0, size = 88 }) {
           strokeWidth={7}
           strokeLinecap="round"
           strokeDasharray={`${dash} ${c - dash}`}
-          className={`${tone} drop-shadow-[0_0_6px_rgba(165,180,252,0.45)] transition-all duration-500`}
+          className={`${tone} drop-shadow-[0_0_6px_rgba(165,180,252,0.2)] transition-all duration-500`}
         />
       </svg>
       <div className="absolute text-center">
         <p className="font-mono text-lg font-bold text-white leading-none">{Math.round(pct)}</p>
-        <p className="mt-0.5 text-[9px] uppercase tracking-widest text-slate-500">ready</p>
+        <p className="mt-0.5 text-[11px] uppercase tracking-widest text-slate-400">ready</p>
       </div>
     </div>
   );

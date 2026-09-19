@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import os
 import zipfile
-from typing import Any
 
 from docx import Document
 from docx.document import Document as _Document

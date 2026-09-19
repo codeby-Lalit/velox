@@ -8,7 +8,7 @@
 ## Quick Start — Desktop Installer (Recommended)
 
 1. Download the installer from the [latest GitHub Release](https://github.com/codeby-Lalit/velox/releases/latest):
-   `CircuitNetworks-Setup-0.1.0.exe`
+   `CircuitNetworks-Setup-0.2.1.exe`
 2. Run the installer; it creates a Start-Menu shortcut and a desktop icon.
 3. Launch **Circuit Networks** — the offline desktop app opens at `http://127.0.0.1:8000`.
 4. Select a publisher profile, drop a `.docx` file (or multiple files for batch, **F107**), and click **Analyze & Format**.
@@ -102,9 +102,9 @@ velox/
 │   └── pyproject.toml
 ├── frontend/
 │   ├── src/                         # React 18 + Vite + Tailwind v4 + Framer Motion
-│   │   ├── views/                   # Import / Processing / Results / Batch /
-│   │   │                            #   EditorView (F110) / OpenedView (F112)
-│   │   ├── components/              # DocPreview, EditPanel, HistoryTimeline, …
+│   │   ├── views/                   # Import / Processing / Workspace (unified
+│   │   │                            #   editor+findings, F110) / Batch / Opened (F112)
+│   │   ├── components/              # DocEditor, DocPreview, HistoryTimeline, …
 │   │   └── lib/roles.js             # role types + client-side Auto-fix rules
 │   ├── dist/                        # Built static assets (served by backend)
 │   └── package.json
@@ -230,7 +230,7 @@ scripts\build_desktop.bat
 
 Produces:
 - `dist\CircuitNetworks\CircuitNetworks.exe` — standalone COLLECT bundle
-- `release\CircuitNetworks-Setup-0.1.0.exe` — Inno Setup installer (~50 MB)
+- `release\CircuitNetworks-Setup-0.2.1.exe` — Inno Setup installer (~50 MB)
 
 The installer:
 - Creates a Start-Menu shortcut and desktop icon

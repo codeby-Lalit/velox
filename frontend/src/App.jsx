@@ -27,7 +27,6 @@ export default function App() {
   const [batchResults, setBatchResults] = useState([]);
   const [activeFile, setActiveFile] = useState(null);
   const [error, setError] = useState(null);
-  const [decisions, setDecisions] = useState(new Map());
   const [stageIdx, setStageIdx] = useState(0);
   const [value, setValue] = useState(0);
   const [openResult, setOpenResult] = useState(null);
@@ -67,7 +66,6 @@ export default function App() {
     setPhase("processing");
     setStageIdx(0);
     setValue(2);
-    setDecisions(new Map());
 
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -128,20 +126,13 @@ export default function App() {
     [files, profileId, beginProcessing, finishProcessing, stopAnimation]
   );
 
-  const handleDecision = useCallback((sourceIndex, action, newElementType) => {
-    setDecisions((prev) => {
-      const next = new Map(prev);
-      next.set(sourceIndex, { source_index: sourceIndex, action, new_element_type: newElementType ?? null });
-      return next;
-    });
-  }, []);
-
-  const resetDecisions = useCallback(() => setDecisions(new Map()), []);
-
-  const commitDecisions = useCallback(() => {
-    const reviews = [...decisions.values()];
-    if (reviews.length) startProcess(reviews, activeFile ? [activeFile] : undefined);
-  }, [decisions, startProcess, activeFile]);
+  const handleReanalyze = useCallback(
+    (reviews) => {
+      if (!reviews || !reviews.length) return;
+      startProcess(reviews, activeFile ? [activeFile] : undefined);
+    },
+    [startProcess, activeFile]
+  );
 
   const cancelProcessing = useCallback(() => {
     stopAnimation();
@@ -304,9 +295,9 @@ export default function App() {
             key={`ws-${result.job_id || result.payload.generated_at}-${editorSerial}`}
             result={result}
             onApply={handleEditorApply}
+            onReanalyze={handleReanalyze}
             onBack={() => {
               if (activeFile) setPhase("batch");
-              else if (phase === "editor" && result.job_id) setPhase("result");
               else setPhase("idle");
             }}
             onRunAgain={() => startProcess([], activeFile ? [activeFile] : undefined)}
@@ -343,7 +334,6 @@ export default function App() {
               const matched = files.find((f) => f.name === res.filename);
               setActiveFile(matched ?? null);
               setResult(res);
-              setDecisions(new Map());
               setPhase("result");
             }}
             onBack={() => setPhase("idle")}
@@ -353,7 +343,7 @@ export default function App() {
       </AnimatePresence>
 
       <footer className="mt-10 pb-8 text-center">
-        <p className="text-[11px] text-slate-600">
+        <p className="mx-auto max-w-3xl px-4 text-[11px] text-balance text-slate-400">
           Circuit Networks · offline deterministic engine · no cloud, no AI · HackNIMA 2026
         </p>
       </footer>

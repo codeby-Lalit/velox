@@ -94,7 +94,7 @@ export default function ImportView({
                       {selected && (
                         <motion.span
                           layoutId="profile-dot"
-                          className="h-2 w-2 rounded-full bg-aqua-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]"
+                          className="h-2 w-2 rounded-full bg-aqua-400 shadow-[0_0_10px_rgba(34,211,238,0.4)]"
                         />
                       )}
                     </div>

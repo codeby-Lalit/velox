@@ -56,7 +56,7 @@ function ResultCard({ item, index, onOpen }) {
         ].map((s) => (
           <div key={s.label} className="rounded-xl bg-ink-950/50 px-2 py-2.5">
             <p className="font-mono text-lg font-semibold text-white">{s.value ?? 0}</p>
-            <p className="text-[10px] uppercase tracking-wider text-slate-500">{s.label}</p>
+            <p className="text-[11px] uppercase tracking-wider text-slate-400">{s.label}</p>
           </div>
         ))}
       </div>

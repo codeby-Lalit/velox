@@ -82,6 +82,47 @@ def test_review_reject_to_paragraph(manuscript):
         assert "human_review_rejected" in applied.get(target).reason_codes
 
 
+def test_pipeline_records_review_decisions_in_audit(manuscript, tmp_path):
+    """R16: review decisions must be recorded in the audit payload and clear
+    the decided item from the review queue after a re-run."""
+    from circuit_networks.core.config import ProfileConfig
+    from circuit_networks.core.pipeline import run_pipeline
+
+    profile = ProfileConfig()
+    first = run_pipeline(str(manuscript), profile, output_dir=str(tmp_path / "out"))
+    assert first.error is None, first.error
+
+    target = None
+    for it in first.payload()["review"]["items"]:
+        if it["confidence"] < C.REVIEW_THRESHOLD:
+            target = it["source_index"]
+            break
+
+    decision = (
+        ReviewDecision(source_index=target, action="accept")
+        if target is not None
+        else ReviewDecision(source_index=0, action="accept")
+    )
+    reviewed = run_pipeline(
+        str(manuscript),
+        profile,
+        output_dir=str(tmp_path / "out2"),
+        decisions=[decision],
+    )
+    assert reviewed.error is None, reviewed.error
+
+    payload = reviewed.payload()
+    items = payload["review"]["decisions"]["items"]
+    assert any(
+        d["source_index"] == decision.source_index and d["action"] == "accept"
+        for d in items
+    )
+    if target is not None:
+        assert not any(
+            it["source_index"] == target for it in payload["review"]["items"]
+        )
+
+
 def test_builder_hierarchy(manuscript):
     model = parse_docx(str(manuscript))
     structure = classify_document(model)

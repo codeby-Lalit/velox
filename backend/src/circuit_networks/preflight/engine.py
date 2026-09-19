@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from ..core.config import ProfileConfig
 from ..core import constants as C
 from ..core.models import DocumentModel
-from ..structure.model import Classification, StructureMap
+from ..structure.model import StructureMap
 
 SEVERITY_INFO = "info"
 SEVERITY_WARNING = "warning"
@@ -184,11 +184,13 @@ def run_preflight(
 
 
 def _build_page_estimator(model: DocumentModel) -> callable:
+    # Index paragraphs once so large documents stay linear (R13).
+    by_index = {p.index: p for p in model.paragraphs}
     words_before: dict[int, float] = {}
     acc = 0.0
     for kind, idx in model.body_order:
         if kind == "paragraph":
-            p = next((x for x in model.paragraphs if x.index == idx), None)
+            p = by_index.get(idx)
             acc += (p.word_count if p else 0) + 2
             words_before[idx] = acc
 
@@ -203,12 +205,3 @@ def _next_body(model: DocumentModel, paragraph_index: int) -> tuple[str, int] | 
         if kind == "paragraph" and idx == paragraph_index:
             return model.body_order[i + 1] if i + 1 < len(model.body_order) else None
     return None
-
-
-def _caption_num(c: Classification) -> int | None:
-    import re
-
-    if not c.subtype:
-        return None
-    m = re.search(r"\d+", c.subtype)
-    return int(m.group(0)) if m else None

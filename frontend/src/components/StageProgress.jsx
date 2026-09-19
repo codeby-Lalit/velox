@@ -45,7 +45,7 @@ export default function StageProgress({ current, value }) {
                 {state === "done" ? (
                   <Check className="h-3.5 w-3.5" />
                 ) : (
-                  <span className="font-mono text-[10px]">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="font-mono text-[11px]">{String(i + 1).padStart(2, "0")}</span>
                 )}
               </span>
               <span className="min-w-0 flex-1">
@@ -61,7 +61,7 @@ export default function StageProgress({ current, value }) {
               </span>
               {state === "active" && (
                 <motion.span
-                  className="h-2 w-2 rounded-full bg-aqua-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]"
+                  className="h-2 w-2 rounded-full bg-aqua-400 shadow-[0_0_10px_rgba(34,211,238,0.4)]"
                   animate={{ opacity: [1, 0.35, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 />

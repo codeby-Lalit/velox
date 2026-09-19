@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GitCommitVertical, RotateCcw, GitBranch } from "lucide-react";
 import { cn, timeAgo } from "../lib/utils";
@@ -9,6 +9,10 @@ import { Badge } from "./ui/badge";
 export default function HistoryTimeline({ history, onRestore, restoringId }) {
   const versions = history?.versions || [];
   const [selected, setSelected] = useState(versions.length ? versions.length - 1 : -1);
+
+  useEffect(() => {
+    if (versions.length) setSelected(versions.length - 1);
+  }, [versions.length]);
 
   if (!versions.length) {
     return (

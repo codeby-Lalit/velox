@@ -217,3 +217,43 @@ def test_sections_start_on_new_page_in_production():
     assert p.heading_spec(1).page_break is True
     assert p.heading_spec(2).page_break is True
     assert p.heading_spec(3).page_break is False
+
+
+def test_roman_chapter_gap_ignores_body_text(tmp_path):
+    """A body paragraph that starts with a Roman-looking token ('IV and V...')
+    must never be treated as a chapter for the roman sequence check (R5)."""
+    doc = Document()
+    t = doc.add_paragraph()
+    tr = t.add_run("Paper Title")
+    tr.font.bold = True
+    tr.font.size = Pt(22)
+    _heading(doc, "I. Introduction")
+    doc.add_paragraph(
+        "IV and V describe prior work in detail while keeping the text body-like "
+        "and long enough to be classified as a mere paragraph."
+    )
+    _heading(doc, "III. Analysis")
+    doc.add_paragraph("Another body paragraph with enough words for a normal paragraph.")
+
+    src = tmp_path / "roman.docx"
+    doc.save(str(src))
+    model = parse_docx(str(src))
+    structure = classify_document(model)
+
+    roman_tokens = [
+        p.text for p in model.paragraphs
+        if structure.get(("paragraph", p.index)) and structure.get(("paragraph", p.index)).is_heading
+        and p.text.upper().startswith("I")
+    ]
+    assert any(x.startswith("I. ") for x in roman_tokens)
+
+    issues = run_preflight(model, structure, profile=_prod_profile(), source_path=str(src))
+    gaps = [i for i in issues if i.code == "chapter_seq_gap"]
+    # Only the genuinely missing "II." between I. and III. is flagged, and it
+    # points at a heading — never at the "IV and V..." body paragraph.
+    assert len(gaps) == 1, f"expected exactly 1 gap, got {len(gaps)}: {gaps}"
+    assert "IV" not in gaps[0].message
+    body_text = model.paragraphs[2].text if len(model.paragraphs) > 2 else ""
+    assert body_text.startswith("IV and V")
+    assert gaps[0].source_index != model.paragraphs[2].index
+    assert "III" in gaps[0].message or "II" in gaps[0].message

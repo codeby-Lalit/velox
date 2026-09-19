@@ -74,9 +74,11 @@ Open/Resume (api /api/open, /api/open-apply) ──→ restore any version (F112
 
 ## UI surface (F110 / F111 / F112)
 
-- `views/EditorView.jsx` — two-pane editor: live preview (`DocPreview`) next to
-  `EditPanel` (per-element text + role, inline warnings with Auto-fix via
-  `lib/roles.autoFix`); "Apply & Reprocess" posts the full edit set.
+- `views/WorkspaceView.jsx` — unified editor+findings IDE: findings list and
+  filters on the left, draggable inline editor (`components/DocEditor.jsx`:
+  per-element text + role select with inline warnings and Auto-fix via
+  `lib/roles.autoFix`) beside/above a live preview (`DocPreview`) toggle;
+  "Commit & re-audit" posts the full edit set to `/api/apply-edits`.
 - `components/HistoryTimeline.jsx` — versions v1..vN with inline diffs; Restore
   resubmits that version's cumulative edits (append-only).
 - `views/OpenedView.jsx` — re-opened `.velox`: "Resume editing" or "Restore"

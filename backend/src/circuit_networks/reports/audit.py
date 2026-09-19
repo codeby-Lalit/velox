@@ -323,7 +323,6 @@ def _render_html(payload: dict) -> str:
         f"<td>{r['confidence']:.2f}</td><td>{html_escape(r['text'] or '')}</td></tr>"
         for r in payload["review"]["items"]
     )
-    conn = payload["engine"]["name"]
     miss_rows = "".join(
         f"<tr><td>{m['kind']}</td><td>{m.get('index', '')}</td>"
         f"<td>{html_escape(str(m.get('expected', '')))}</td>"

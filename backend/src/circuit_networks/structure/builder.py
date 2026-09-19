@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from ..core import constants as C
 from ..core.models import DocumentModel
-from .model import Classification, StructureMap
+from .model import StructureMap
 
 
 @dataclass

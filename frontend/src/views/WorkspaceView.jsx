@@ -18,6 +18,7 @@ import {
   Gauge,
   CheckCircle2,
   LayoutPanelLeft,
+  X,
 } from "lucide-react";
 import { cn, downloadUrl } from "../lib/utils";
 import {
@@ -27,6 +28,7 @@ import {
   SEVERITY_ORDER,
   issueIsResolved,
   isFixable,
+  isReviewable,
   buildEdits,
   autoFixAll,
 } from "../lib/issues";
@@ -41,6 +43,7 @@ const FILTER_ICONS = { error: AlertCircle, warning: AlertTriangle, info: Info };
 export default function WorkspaceView({
   result,
   onApply,
+  onReanalyze = () => {},
   onBack,
   onRunAgain,
   busy,
@@ -49,6 +52,7 @@ export default function WorkspaceView({
   const payload = result?.payload || {};
   const stats = payload.processing_stats || {};
   const [overrides, setOverrides] = useState({});
+  const [decisions, setDecisions] = useState({});
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("all");
   const [severity, setSeverity] = useState("all");
@@ -73,9 +77,14 @@ export default function WorkspaceView({
   const liveIssues = useMemo(() => {
     return issues.filter((issue) => {
       if (issue.source_index < 0) return true;
-      return !issueIsResolved(issue, byIndex.get(issue.source_index), overrides[issue.source_index]);
+      return !issueIsResolved(
+        issue,
+        byIndex.get(issue.source_index),
+        overrides[issue.source_index],
+        decisions
+      );
     });
-  }, [issues, overrides, byIndex]);
+  }, [issues, overrides, decisions, byIndex]);
 
   const issuesByElement = useMemo(() => {
     const map = {};
@@ -133,21 +142,36 @@ export default function WorkspaceView({
         edits,
         message: message.trim() || (auto ? "background re-scan" : `manual edits (${edits.length})`),
       });
-      setOverrides({});
-      setMessage("");
+    } catch {
+      // App.jsx already routes to the error phase and shows the banner; the
+      // workspace unmounts, so there is nothing else to do here.
     } finally {
       setConfirming(false);
+      setOverrides({});
+      setMessage("");
     }
   };
 
   const reScan = () => applyNow({ auto: true });
 
   const handleAutoFixAll = () => {
-    setOverrides((prev) => ({
+    setOverrides((prev) => {
+      const next = { ...prev };
+      for (const [idx, fix] of Object.entries(autoFixAll(liveIssues, byIndex))) {
+        next[idx] = { ...(next[idx] || {}), ...fix };
+      }
+      return next;
+    });
+  };
+
+  const handleDecide = (idx, action) => {
+    setDecisions((prev) => ({
       ...prev,
-      ...autoFixAll(liveIssues, byIndex),
+      [idx]: { source_index: idx, action, new_element_type: null },
     }));
   };
+
+  const reviewQueue = useMemo(() => Object.values(decisions), [decisions]);
 
   const locate = (idx) => {
     setActiveIndex(idx);
@@ -183,7 +207,7 @@ export default function WorkspaceView({
 
   /* ---- render -------------------------------------------------------------- */
   return (
-    <div className="circuit-bg relative flex h-screen w-full flex-col overflow-hidden">
+    <div className="circuit-bg relative flex h-screen w-full flex-col">
       <div className="orb orb-a" />
       <div className="orb orb-b" />
       {/* Top bar */}
@@ -205,7 +229,7 @@ export default function WorkspaceView({
           className="min-w-0"
         >
           <p className="truncate text-[14px] font-semibold text-white leading-tight">{base}</p>
-          <p className="flex items-center gap-1.5 text-[10px] text-slate-500">
+          <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
             <span className={cn("h-1.5 w-1.5 rounded-full", liveAccuracy >= 90 ? "bg-mint-400" : "bg-amber-400")} />
             {payload.profile || "default"} · {new Date(payload.generated_at).toLocaleString()}
           </p>
@@ -309,7 +333,6 @@ export default function WorkspaceView({
         className="min-h-0 flex-1"
         leftClassName="h-full"
         rightClassName="h-full"
-        ratio={0.38}
         left={
           <LeftPane
             liveIssues={liveIssues}
@@ -325,6 +348,9 @@ export default function WorkspaceView({
             pages={stats.pages_estimate ?? 1}
             fixableCount={fixableCount}
             onAutoFixAll={handleAutoFixAll}
+            decisions={decisions}
+            onDecide={handleDecide}
+            onReanalyze={() => onReanalyze(reviewQueue)}
             onLocate={locate}
             onHover={setHoverIndex}
             busy={busy || confirming}
@@ -334,10 +360,10 @@ export default function WorkspaceView({
           <div className="flex h-full min-w-0 flex-col">
             <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-ink-950/60 px-4 backdrop-blur">
               <LayoutPanelLeft className="h-3.5 w-3.5 text-slate-500" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                 Document
               </span>
-              <span className="font-mono text-[10px] text-slate-600">
+              <span className="font-mono text-[11px] text-slate-500">
                 {elements.length} elements
               </span>
               {Object.keys(overrides).length > 0 && (
@@ -346,7 +372,7 @@ export default function WorkspaceView({
                 </Badge>
               )}
               {hoverIndex !== null && (
-                <span className="ml-auto font-mono text-[10px] text-aqua-300">element #{hoverIndex}</span>
+                <span className="ml-auto font-mono text-[11px] text-aqua-300">element #{hoverIndex}</span>
               )}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
@@ -414,12 +440,16 @@ function LeftPane({
   pages,
   fixableCount,
   onAutoFixAll,
+  decisions,
+  onDecide,
+  onReanalyze,
   onLocate,
   onHover,
   busy,
 }) {
   const [showAll, setShowAll] = useState(false);
-  const shown = showAll ? filtered : filtered.slice(0, 40);
+  const shown = showAll ? filtered : filtered.slice(0, 10);
+  const reviewedCount = Object.keys(decisions).length;
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -429,12 +459,12 @@ function LeftPane({
           <AccuracyRing value={liveAccuracy} />
 <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Audit</p>
-                <span className="pulse-dot inline-flex items-center gap-1 rounded-md bg-aqua-400/10 px-1.5 py-0.5 text-[9px] font-semibold text-aqua-300 ring-1 ring-aqua-400/20">
-                  <span className="h-1 w-1 rounded-full bg-aqua-300" /> live
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Audit</p>
+                <span className="pulse-dot inline-flex items-center gap-1 rounded-md bg-aqua-400/10 px-1.5 py-0.5 text-[11px] font-semibold text-aqua-300 ring-1 ring-aqua-400/20">
+                  <span className="h-1.5 w-1.5 rounded-full bg-aqua-300" /> live
                 </span>
               </div>
-              <p className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
+              <p className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
                 <span className="inline-flex items-center gap-1 text-rose-300">
                   <AlertCircle className="h-3 w-3" /> <CountUp value={counts.error} />
                 </span>
@@ -445,7 +475,7 @@ function LeftPane({
                   <Info className="h-3 w-3" /> <CountUp value={counts.info} />
                 </span>
               </p>
-              <p className="mt-1 text-[10px] text-slate-600">
+              <p className="mt-1 text-[11px] text-slate-400">
                 <CountUp value={rulesChecked} /> rules checked · <CountUp value={pages} /> pages ·{" "}
                 <CountUp value={liveIssues.length} /> findings
               </p>
@@ -464,7 +494,7 @@ function LeftPane({
                   key={c}
                   onClick={() => setCategory(c)}
                   className={cn(
-                    "relative rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors",
+                    "relative rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors",
                     active ? "text-white" : "text-slate-400 hover:text-slate-200"
                   )}
                 >
@@ -477,7 +507,7 @@ function LeftPane({
                   )}
                   <span className="relative">
                     {c === "all" ? "All" : meta.label}
-                    <span className="ml-1 font-mono text-[9px] opacity-70">{count}</span>
+                    <span className="ml-1 font-mono text-[11px]">{count}</span>
                   </span>
                 </button>
               );
@@ -492,7 +522,7 @@ function LeftPane({
                   key={s}
                   onClick={() => setSeverity(s)}
                   className={cn(
-                    "relative inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors",
+                    "relative inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
                     active ? "text-slate-100" : "text-slate-500 hover:text-slate-300"
                   )}
                 >
@@ -507,7 +537,7 @@ function LeftPane({
                   <span className="relative inline-flex items-center gap-1.5">
                     {s !== "all" && <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} />}
                     {s === "all" ? "All severities" : meta.label}
-                    {s !== "all" && <span className="font-mono text-[9px] opacity-70">{counts[s] || 0}</span>}
+                    {s !== "all" && <span className="font-mono text-[11px]">{counts[s] || 0}</span>}
                   </span>
                 </button>
               );
@@ -518,19 +548,33 @@ function LeftPane({
 
       {/* Issues */}
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Findings · {filtered.length}
           </p>
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={onAutoFixAll}
-            disabled={!fixableCount || busy}
-            title="Apply every one-click fix into the document (commit to confirm)"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-mint-400/15 px-2.5 py-1.5 text-[10px] font-semibold text-mint-300 ring-1 ring-mint-400/30 hover:bg-mint-400/25 disabled:opacity-40"
-          >
-            <Wand2 className="h-3 w-3" /> Auto-Fix All{fixableCount ? ` (${fixableCount})` : ""}
-          </motion.button>
+          <div className="flex items-center gap-1.5">
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={onAutoFixAll}
+              disabled={!fixableCount || busy}
+              title="Apply every one-click fix into the document (commit to confirm)"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-mint-400/15 px-2.5 py-1.5 text-[11px] font-semibold text-mint-300 ring-1 ring-mint-400/30 hover:bg-mint-400/25 disabled:opacity-40"
+            >
+              <Wand2 className="h-3 w-3" /> Auto-Fix All{fixableCount ? ` (${fixableCount})` : ""}
+            </motion.button>
+            {reviewedCount > 0 && (
+              <motion.button
+                layout
+                whileTap={{ scale: 0.97 }}
+                onClick={onReanalyze}
+                disabled={busy}
+                title="Re-run the local pipeline with your review decisions (F101)"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-iris-400/15 px-2.5 py-1.5 text-[11px] font-semibold text-iris-300 ring-1 ring-iris-400/30 hover:bg-iris-400/25 disabled:opacity-40"
+              >
+                <RefreshCw className="h-3 w-3" /> Re-analyze with decisions ({reviewedCount})
+              </motion.button>
+            )}
+          </div>
         </div>
 
         <AnimatePresence initial={false} mode="popLayout">
@@ -539,6 +583,10 @@ function LeftPane({
               key={`${issue.code}-${issue.source_index}-${i}`}
               index={i}
               issue={issue}
+              decided={decisions[issue.source_index] !== undefined}
+              onDecide={(action) =>
+                isReviewable(issue) && onDecide(issue.source_index, action)
+              }
               onLocate={() => onLocate(issue.source_index)}
               onHover={onHover}
             />
@@ -556,7 +604,7 @@ function LeftPane({
         {filtered.length > shown.length && (
           <button
             onClick={() => setShowAll((v) => !v)}
-            className="mt-1 w-full rounded-xl py-2 text-center text-[11px] font-semibold text-slate-500 hover:text-white"
+            className="mt-1 w-full rounded-xl py-2 text-center text-[11px] font-semibold text-slate-400 hover:text-white"
           >
             {showAll ? "Show fewer" : `Show all ${filtered.length - shown.length} more`}
           </button>
@@ -589,11 +637,15 @@ function CountUp({ value }) {
   return <>{display}</>;
 }
 
-function IssueCard({ issue, index, onLocate, onHover }) {
+function IssueCard({ issue, index, onLocate, onHover, decided = false, onDecide }) {
   const meta = SEVERITY_META[issue.severity];
   const Icon = FILTER_ICONS[issue.severity] || Info;
   const fix = isFixable(issue) ? true : false;
+  const reviewable = isReviewable(issue);
   const page = issue.details?.page;
+  const hint = issue.details?.confidence
+    ? ` ${(issue.details.confidence * 100).toFixed(0)}% confident`
+    : "";
 
   return (
     <motion.div
@@ -615,15 +667,42 @@ function IssueCard({ issue, index, onLocate, onHover }) {
       <div className="flex items-start gap-2.5">
         <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", meta.text)} />
         <div className="min-w-0 flex-1">
-          <p className="text-[12px] leading-snug text-slate-200">{issue.message}</p>
+          <p className="text-[12px] leading-snug text-slate-200">
+            {issue.message}
+            {hint}
+          </p>
           <div className="mt-1 flex items-center gap-2">
-            <span className="font-mono text-[9px] text-slate-500">{issue.code}</span>
-            <span className={cn("rounded px-1 text-[9px] font-medium", meta.chip)}>{meta.label}</span>
+            <span className="font-mono text-[11px] text-slate-400">{issue.code}</span>
+            <span className={cn("rounded px-1 text-[11px] font-medium", meta.chip)}>{meta.label}</span>
             {typeof issue.source_index === "number" && issue.source_index >= 0 && (
-              <span className="font-mono text-[9px] text-slate-600">#{issue.source_index}</span>
+              <span className="font-mono text-[11px] text-slate-500">#{issue.source_index}</span>
             )}
-            {page && <span className="font-mono text-[9px] text-slate-600">page {page}</span>}
+            {page && <span className="font-mono text-[11px] text-slate-500">page {page}</span>}
+            {reviewable && decided && (
+              <span className="rounded bg-iris-400/15 px-1 text-[10px] font-semibold text-iris-300">
+                reviewed
+              </span>
+            )}
           </div>
+
+          {reviewable && !decided && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <button
+                onClick={(e) => { e.stopPropagation(); onDecide("accept"); }}
+                title="Accept this classification (records human_review_accepted, F101)"
+                className="inline-flex items-center gap-1 rounded-md bg-mint-400/15 px-2 py-0.5 text-[11px] font-semibold text-mint-300 ring-1 ring-mint-400/30 hover:bg-mint-400/25"
+              >
+                <CheckCircle2 className="h-3 w-3" /> Accept
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDecide("reject_to_paragraph"); }}
+                title="Reject this classification — treat the paragraph as body text (F101)"
+                className="inline-flex items-center gap-1 rounded-md bg-rose-400/15 px-2 py-0.5 text-[11px] font-semibold text-rose-300 ring-1 ring-rose-400/30 hover:bg-rose-400/25"
+              >
+                <X className="h-3 w-3" /> Reject
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           {fix && (

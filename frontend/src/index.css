@@ -50,9 +50,9 @@ body {
   inset: 0;
   z-index: -2;
   background-image:
-    radial-gradient(circle at 20% 10%, rgba(34, 211, 238, 0.08), transparent 40%),
-    radial-gradient(circle at 85% 20%, rgba(129, 140, 248, 0.08), transparent 42%),
-    radial-gradient(circle at 50% 100%, rgba(52, 211, 153, 0.06), transparent 45%);
+    radial-gradient(circle at 20% 10%, rgba(34, 211, 238, 0.05), transparent 40%),
+    radial-gradient(circle at 85% 20%, rgba(129, 140, 248, 0.05), transparent 42%),
+    radial-gradient(circle at 50% 100%, rgba(52, 211, 153, 0.04), transparent 45%);
 }
 .circuit-bg::after {
   content: "";
@@ -69,8 +69,8 @@ body {
   position: fixed;
   z-index: -1;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.35;
+  filter: blur(72px);
+  opacity: 0.12;
   pointer-events: none;
   animation: orb-drift 22s ease-in-out infinite alternate;
 }
@@ -79,20 +79,20 @@ body {
   height: 34rem;
   left: -8rem;
   top: -6rem;
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.20), transparent 65%);
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.09), transparent 65%);
 }
 .orb-b {
   width: 30rem;
   height: 30rem;
   right: -6rem;
   bottom: -8rem;
-  background: radial-gradient(circle, rgba(34, 211, 238, 0.14), transparent 65%);
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.06), transparent 65%);
   animation-delay: -11s;
   animation-duration: 26s;
 }
 @keyframes orb-drift {
   from { transform: translate3d(0, 0, 0) scale(1); }
-  to { transform: translate3d(3rem, 2rem, 0) scale(1.12); }
+  to { transform: translate3d(2rem, 1.5rem, 0) scale(1.08); }
 }
 
 .glass {
@@ -154,10 +154,10 @@ body {
 }
 
 .shadow-glow {
-  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25), 0 8px 40px -8px rgba(34, 211, 238, 0.35);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.18), 0 8px 28px -14px rgba(34, 211, 238, 0.22);
 }
 .shadow-glow-iris {
-  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.3), 0 8px 40px -8px rgba(129, 140, 248, 0.4);
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.22), 0 8px 28px -14px rgba(129, 140, 248, 0.26);
 }
 
 /* Thin custom scrollbar */

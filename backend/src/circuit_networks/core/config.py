@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -117,13 +116,6 @@ class ProfileConfig(BaseModel):
             2: FontSpec(name="Times New Roman", size=14, bold=True),
             3: FontSpec(name="Times New Roman", size=12, bold=True, italic=True),
             4: FontSpec(name="Times New Roman", size=12, bold=True),
-        }
-        candidates = {
-            "h0": plan[0],
-            "h1": plan[1],
-            "h2": plan[2],
-            "h3": plan[3],
-            "h4": plan[4],
         }
         for key in (f"h{level}", f"h{min(level, 4)}"):
             spec = self.headings.get(key)

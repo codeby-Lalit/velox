@@ -60,6 +60,20 @@ and `empty_document` (no headings). Rebuild with:
 python scripts/make_sample.py --corpus
 ```
 
+## Behavior notes
+
+- **Preflight `chapter_seq_gap` (roman chapters):** only heading paragraphs
+  participate (`professional.py`); a body paragraph starting with a Roman-like
+  token must never flag a gap. The message renders the expected numeral via
+  `_int_to_roman`.
+- **Upload limits (R11):** every upload path — `/api/process`, `/api/open`,
+  `/api/open-apply` — streams through `_read_upload` and rejects with HTTP 413
+  over `MAX_UPLOAD_BYTES` (`api/main.py`).
+- **Desktop single instance (R27):** `desktop.py` computes a free port once and
+  caches the live port in a temp file; a second launch reads the cache, verifies
+  the server is reachable, and reopens the running app's URL instead of
+  scanning a new port.
+
 ## Frontend (React premium UI)
 
 The UI lives in `frontend/` as a React + Vite + Tailwind v4 + Framer Motion
@@ -67,29 +81,36 @@ single-page app. It never loads external resources at runtime (fonts are
 bundled via `@fontsource-variable/*`), which keeps the offline constraint (R1).
 
 - Views: Import (multi-file dropzone + publisher profile picker + **Open .velox
-  — F112**), Processing (staged pipeline animation per F106), Results (integrity
-  banner, stats, tabbed **Structure / Before-After / Issues / Review** panels),
-  **Editor (F110/F111)**, **Opened (.velox restart — F112)** and Batch results
-  (F107) with drill-down into per-file reports.
-- **Editor (F110):** `EditorView.jsx` — two-pane: `DocPreview` (live, reflects
-  overrides instantly on paper-white page) beside `EditPanel` (manual text +
-  role select + inline warnings with **Auto-fix** where `lib/roles.js` defines a
-  rule, manual otherwise). "Apply & Reprocess" calls `POST /api/apply-edits`
-  with the full cumulative edit set.
+  — F112**), Processing (staged pipeline animation per F106), **Workspace
+  (F110/F111)** — the unified findings + inline-editing IDE — plus Opened (.velox
+  restart — F112) and Batch results (F107) with drill-down into per-file reports.
+- **Workspace (F110):** `WorkspaceView.jsx` — findings list with severity/
+  category filters on the left, a draggable split (`ResizeSplit`) with
+  `DocEditor` (per-element text + role select + inline warnings with **Auto-fix**
+  where `lib/roles.js` defines a rule, "Auto-Fix All" deep-merges into existing
+  pending edits) and a live `DocPreview`. "Commit & re-audit" calls
+  `POST /api/apply-edits` with the full cumulative edit set.
 - **History (F111):** `HistoryTimeline.jsx` renders versions v1..vN with inline
   diffs and a selected-version **Restore** (append-only).
 - **.velox (F112):** primary deliverable `*_velox.docx`; `OpenedView.jsx` +
   `POST /api/open` restore the manifest; "Resume editing"/"Restore" use
   `POST /api/open-apply` and re-process the embedded original. A plain DOCX and
   audit JSON/HTML downloads remain in the deliverables bar.
-- **Warnings (F113/R26):** `IssuesList.jsx` and `EditPanel.jsx` paginate at 10 /
-  25 items with "Show more".
+- **Warnings (F113/R26):** the workspace findings list paginates at 10 items
+  with "Show all N more" / "Show fewer" (R26).
 - **Compare (F104):** backend `structure_view` rows pair each detected element
   with its profile target style so the UI can render source-vs-formatted.
 - **Locate (F105):** IssuesList asks the Structure tab to highlight the element
   whose `source_index` matches, then smooth-scrolls to it.
-- Review flow (F101): accept / change / reject per low-confidence item, then
-  "Re-analyze with decisions" re-runs the local pipeline with the decisions.
+- **Findings queue (F101):** the workspace findings list doubles as the review
+  queue — `low_confidence` cards offer inline **Accept** (records
+  `human_review_accepted`) and **Reject** (`reject_to_paragraph`,
+  `human_review_rejected`); role **change** goes through the editor's role
+  select, which the pipeline converts to a `change` decision
+  (`core/pipeline.py` `_role_decisions`). Decided items are recorded in
+  `review.json` per job, replayed on every re-run (R14), reported in the audit
+  payload under `review.decisions` (R16), and cleared from the queue after a
+  "Re-analyze with decisions" run.
 - UI design system (R22/R23): **Dark Neumorphism** — reuse `neu-raised`,
   `neu-inset`, `neu-chip` from `index.css` (no borders; dual soft shadows on
   #121212/#1a1a1a) + Framer Motion springs (whileTap 0.98, stiffness 300,
@@ -116,7 +137,7 @@ falling back to the source `frontend/`.
 1. `pip install -e backend`
 2. `npm install && npm run build` in `frontend/`
 3. `python -m PyInstaller packaging/velox.spec` → `dist/CircuitNetworks\`
-4. (optional) `ISCC packaging/circuit-networks.iss` → `release\CircuitNetworks-Setup-0.1.0.exe`
+4. (optional) `ISCC packaging/circuit-networks.iss` → `release\CircuitNetworks-Setup-0.2.1.exe`
 
 The PyInstaller bundle (`datas` in `packaging/velox.spec`) includes the built
 React app under `_internal/frontend` and profiles under `_internal/profiles`.

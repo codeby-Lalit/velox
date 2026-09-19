@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import os
 import tempfile
 import time
 import tracemalloc
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..core import constants as C
 from ..core.config import ProfileConfig
 from ..core.version import ENGINE_NAME, ENGINE_VERSION
 from ..formatter.engine import format_document
@@ -56,6 +54,16 @@ class PipelineResult:
                 "json": self.audit_json or "",
                 "html": self.audit_html or "",
             },
+            review_decisions={
+                "items": [
+                    {
+                        "source_index": d.source_index,
+                        "action": d.action,
+                        "new_element_type": d.new_element_type,
+                    }
+                    for d in getattr(self, "_decisions", [])
+                ]
+            },
             elapsed_ms=self.elapsed_ms,
             peak_memory_bytes=self.peak_memory_bytes,
         )
@@ -90,6 +98,7 @@ def run_pipeline(
     result = PipelineResult(source_path=source_path, workdir=workdir)
     result._profile_name = profile.name  # type: ignore[attr-defined]
     result._profile = profile  # type: ignore[attr-defined]
+    result._decisions = list(decisions or []) + role_decisions  # type: ignore[attr-defined]
     started = time.perf_counter()
     tracemalloc.start()
 

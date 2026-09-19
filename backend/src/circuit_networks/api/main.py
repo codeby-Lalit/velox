@@ -28,6 +28,13 @@ from ..velox.package import embed_manifest, embed_original, read_manifest, read_
 
 _TEMP_MAX_AGE_SECONDS = 24 * 60 * 60  # sweep job dirs older than 24h
 
+UPLOADS = Path(tempfile.gettempdir()) / "circuit-networks"
+UPLOADS.mkdir(parents=True, exist_ok=True)
+
+# R11: refuse oversized uploads (plenty for 400+ page manuscripts)
+MAX_UPLOAD_BYTES = 200 * 1024 * 1024
+_UNSAFE_FILENAME = re.compile(r"[^\w.\- ]")
+
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
@@ -52,19 +59,26 @@ def _sweep_old_jobs() -> None:
     except OSError:
         pass
 
-UPLOADS = Path(tempfile.gettempdir()) / "circuit-networks"
-UPLOADS.mkdir(parents=True, exist_ok=True)
-
-# R11: refuse oversized uploads (plenty for 400+ page manuscripts)
-MAX_UPLOAD_BYTES = 200 * 1024 * 1024
-_UNSAFE_FILENAME = re.compile(r"[^\w.\- ]")
-
 
 def _safe_filename(filename: str) -> str:
     """Keep only the file name, stripped of any directory components (R11)."""
     name = Path(filename).name
     cleaned = _UNSAFE_FILENAME.sub("_", name)
     return cleaned or f"manuscript{uuid.uuid4().hex[:8]}.docx"
+
+
+def _read_upload(file: UploadFile, dest: Path) -> None:
+    """Stream an upload to ``dest``, enforcing the R11 size cap in flight."""
+    total = 0
+    with dest.open("wb") as fh:
+        while chunk := file.file.read(1024 * 1024):
+            total += len(chunk)
+            if total > MAX_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit",
+                )
+            fh.write(chunk)
 
 
 class ReviewRequest(BaseModel):
@@ -175,17 +189,11 @@ async def _process_upload(
     job_dir.mkdir(parents=True, exist_ok=True)
     source = job_dir / safe_name
 
-    total = 0
-    with source.open("wb") as fh:
-        while chunk := file.file.read(1024 * 1024):
-            total += len(chunk)
-            if total > MAX_UPLOAD_BYTES:
-                shutil.rmtree(job_dir, ignore_errors=True)
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit",
-                )
-            fh.write(chunk)
+    try:
+        _read_upload(file, source)
+    except HTTPException:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise
 
     profile = _load_profile(profile_id)
     decisions = _parse_reviews(review_json)
@@ -443,9 +451,7 @@ async def open_velox(file: UploadFile = File(...)):
     tmp = Path(tempfile.mkdtemp(prefix="circuit-networks-open-")) / safe_name
     tmp.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with tmp.open("wb") as fh:
-            while chunk := file.file.read(1024 * 1024):
-                fh.write(chunk)
+        _read_upload(file, tmp)
         manifest = read_manifest(str(tmp))
     finally:
         shutil.rmtree(tmp.parent, ignore_errors=True)
@@ -479,9 +485,7 @@ async def apply_open_edits(
     tmp = Path(tempfile.mkdtemp(prefix="circuit-networks-open-")) / safe_name
     tmp.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with tmp.open("wb") as fh:
-            while chunk := file.file.read(1024 * 1024):
-                fh.write(chunk)
+        _read_upload(file, tmp)
         manifest = read_manifest(str(tmp))
         if manifest is None:
             raise HTTPException(

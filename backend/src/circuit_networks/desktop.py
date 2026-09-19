@@ -11,14 +11,21 @@ from __future__ import annotations
 
 import argparse
 import socket
+import sys
+import tempfile
 import threading
 import time
 import webbrowser
+from pathlib import Path
 
 from circuit_networks.api.main import serve
 
 _MUTEX_NAME = "Local\\CircuitNetworks-SingleInstance"
 _MUTEX_HANDLE = None
+
+# The winner writes the bound port here so a later single-instance launch
+# opens the URL the running server actually listens on (R27).
+_PORT_CACHE = Path(tempfile.gettempdir()) / "circuit-networks" / "port.txt"
 
 
 def _mutex_taken() -> bool:
@@ -46,8 +53,12 @@ def _mutex_taken() -> bool:
         return False
 
 
-def _find_free_port(start: int = 8000, tries: int = 21) -> int:
-    """Return the first free localhost port starting at ``start``."""
+def _find_free_port(start: int = 8000, tries: int = 21) -> int | None:
+    """Return the first free localhost port starting at ``start``.
+
+    Returns ``None`` when the whole range is occupied instead of silently
+    handing back a busy port that would crash the bind.
+    """
     for port in range(start, start + tries):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
@@ -55,7 +66,36 @@ def _find_free_port(start: int = 8000, tries: int = 21) -> int:
                 return port
             except OSError:
                 continue
-    return start
+    return None
+
+
+def _save_port(port: int) -> None:
+    try:
+        _PORT_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        _PORT_CACHE.write_text(str(port), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _port_is_live(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.4)
+        try:
+            s.connect(("127.0.0.1", port))
+            return True
+        except OSError:
+            return False
+
+
+def _read_running_port(fallback: int) -> int:
+    """Return the port the running instance saved, if it is actually live."""
+    try:
+        port = int(_PORT_CACHE.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return fallback
+    if 1 <= port <= 65535 and _port_is_live(port):
+        return port
+    return fallback
 
 
 def _open_browser(port: int) -> None:
@@ -65,14 +105,24 @@ def _open_browser(port: int) -> None:
 
 def main(host: str = "127.0.0.1", port: int = 8000, no_browser: bool = False) -> None:
     if _mutex_taken():
+        running = _read_running_port(port)
         print("Circuit Networks is already running. Opening the existing instance...")
         if not no_browser:
-            webbrowser.open(f"http://{host}:{port}")
+            webbrowser.open(f"http://{host}:{running}")
         return
 
-    if port != _find_free_port(port):
+    chosen = _find_free_port(port)
+    if chosen is None:
+        print(
+            f"No free localhost port between {port} and {port + 20}; "
+            "close a program using one and try again.",
+            file=sys.stderr,
+        )
+        return
+    if chosen != port:
         print("Desired port is busy; picking the first free localhost port.")
-        port = _find_free_port(port)
+    _save_port(chosen)
+    port = chosen
 
     if not no_browser:
         threading.Thread(target=_open_browser, args=(port,), daemon=True).start()

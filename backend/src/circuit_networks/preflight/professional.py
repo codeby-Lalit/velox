@@ -15,14 +15,12 @@ import re
 from ..core import constants as C
 from ..core.config import ProfileConfig
 from ..core.models import DocumentModel
-from ..structure.model import Classification, StructureMap
+from ..structure.model import StructureMap
 from .engine import PreflightIssue, SEVERITY_ERROR, SEVERITY_INFO, SEVERITY_WARNING
 
 CATEGORY_STRUCTURE = "structure"
 CATEGORY_FORMATTING = "formatting"
 CATEGORY_SUGGESTION = "suggestion"
-
-WORDS_PER_PAGE = 300.0
 
 # Explicitly-checked professional rule codes (used for the "rules checked" metric).
 PROFESSIONAL_RULES = (
@@ -147,31 +145,6 @@ def _profile_dimensions(page) -> tuple[float, float] | None:
     return dims
 
 
-def build_page_estimator(model: DocumentModel) -> callable:
-    """Return words_before(i) -> estimated 1-based page number."""
-    words_before: dict[int, float] = {}
-    acc = 0.0
-    for kind, idx in model.body_order:
-        if kind == "paragraph":
-            by_index = {p.index: p for p in model.paragraphs}
-            p = by_index.get(idx)
-            acc += (p.word_count if p else 0) + 2
-            words_before[idx] = acc
-
-    def page_of(idx: int) -> int:
-        return 1 + int((words_before.get(idx, 0) or 0) // WORDS_PER_PAGE)
-
-    return page_of
-
-
-def annotate_page(issue: PreflightIssue, page_of: callable) -> PreflightIssue:
-    if issue.source_index >= 0 and "page" not in issue.details:
-        page = page_of(issue.source_index)
-        if page > 0:
-            issue.details["page"] = page
-    return issue
-
-
 def first_text(words: list[str]) -> str:
     return (words[0] if words else "")[:120]
 
@@ -187,7 +160,6 @@ def run_professional_checks(
         return issues
 
     text_by_index = {p.index: p.text for p in model.paragraphs}
-    para_by_index = {p.index: p for p in model.paragraphs}
 
     ordered = [
         (kind, idx)
@@ -294,8 +266,14 @@ def run_professional_checks(
     _flag_seq_gaps(chapter_numbers, "chapter_seq_gap", "Chapter")
     _flag_seq_gaps(nested_numbers, "heading_num_gap", "Section")
 
-    # Roman-numeral chapter sequences (front matter style chapters)
-    roman_chapters = [(idx, _roman_int(text)) for idx, text in text_by_index.items()]
+    # Roman-numeral chapter sequences (front matter style chapters).
+    # Only heading paragraphs participate; a body paragraph that happens to
+    # start with a Roman-like token (e.g. "IV drip ...") must never surface a
+    # chapter_seq_gap false positive.
+    roman_chapters = [
+        (idx, _roman_int(text_by_index.get(idx, "")))
+        for _, idx in ordered
+    ]
     roman_chapters = [
         (idx, r) for idx, r in roman_chapters if r is not None
     ]
@@ -308,8 +286,8 @@ def run_professional_checks(
                     code="chapter_seq_gap",
                     severity=SEVERITY_WARNING,
                     message=(
-                        f"Chapter numbering skips a Roman value near "
-                        f"'{value-1}' (expected preceding equivalent)."
+                        "Chapter numbering skips a Roman value near "
+                        f"'{_int_to_roman(value - 1)}' (expected preceding equivalent)."
                     ),
                     source_index=idx,
                     details={"page": page_of(idx), "number": value},
@@ -422,8 +400,6 @@ def run_professional_checks(
         )
 
     # -- 8. Font / size / indent / alignment / spacing on body text --------------
-    if not (profile.strict.enabled):
-        return issues
     body_font = profile.font_for("body", "Times New Roman", 12.0)
     allowed = {body_font.name.lower()}
     allowed.update((f.lower() for f in profile.strict.allowed_fonts))
@@ -571,6 +547,24 @@ def _roman_int(text: str) -> int | None:
         else:
             total += v
     return total if total > 0 else None
+
+
+def _int_to_roman(value: int) -> str:
+    """Render an integer back to uppercase Roman numerals for messages."""
+    if value <= 0:
+        return ""
+    table = (
+        (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+        (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+        (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+    )
+    out: list[str] = []
+    remaining = value
+    for amount, symbol in table:
+        while remaining >= amount:
+            out.append(symbol)
+            remaining -= amount
+    return "".join(out)
 
 
 def _first_after_heading_indices(model: DocumentModel, structure: StructureMap) -> set[int]:

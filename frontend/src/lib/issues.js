@@ -9,7 +9,6 @@ export const SEVERITY_META = {
     text: "text-rose-300",
     dot: "bg-rose-400",
     chip: "bg-rose-400/10 text-rose-300 ring-rose-400/30",
-    glow: "shadow-[0_0_18px_-6px_rgba(251,113,133,0.6)]",
     mark: "border-l-rose-400/80 bg-rose-400/[0.05]",
     underline: "decoration-rose-400/80",
   },
@@ -18,7 +17,6 @@ export const SEVERITY_META = {
     text: "text-amber-300",
     dot: "bg-amber-400",
     chip: "bg-amber-400/10 text-amber-300 ring-amber-400/30",
-    glow: "shadow-[0_0_18px_-6px_rgba(251,191,36,0.6)]",
     mark: "border-l-amber-400/80 bg-amber-400/[0.05]",
     underline: "decoration-amber-400/80",
   },
@@ -27,7 +25,6 @@ export const SEVERITY_META = {
     text: "text-aqua-300",
     dot: "bg-aqua-400",
     chip: "bg-aqua-400/10 text-aqua-300 ring-aqua-400/30",
-    glow: "shadow-[0_0_18px_-6px_rgba(34,211,238,0.55)]",
     mark: "border-l-aqua-400/70 bg-aqua-400/[0.04]",
     underline: "decoration-aqua-400/70",
   },
@@ -51,10 +48,30 @@ export function isFixable(issue) {
   return autoFix(issue?.code, issue?.details) !== null;
 }
 
-export function issueIsResolved(issue, el, override) {
+/* ---- F101 human review --------------------------------------------------- */
+
+/** Only classification-quality findings enter the review queue (no one-click
+    fix; the reviewer decides accept / reject / change). */
+export function isReviewable(issue) {
+  return issue?.code === "low_confidence";
+}
+
+/** Build a ReviewDecision payload for the backend (change goes through the
+    editor's role select, which the pipeline converts to a "change" decision). */
+export function reviewDecision(issue, action) {
+  return {
+    source_index: issue.source_index,
+    action, // "accept" | "reject_to_paragraph"
+    new_element_type: null,
+  };
+}
+
+export function issueIsResolved(issue, el, override, decisions = {}) {
   if (!el) return false;
   const role = override?.element_type ?? el.element_type;
   switch (issue?.code) {
+    case "low_confidence":
+      return decisions[issue.source_index] !== undefined;
     case "hierarchy_jump": {
       const target = autoFix(issue.code, issue.details);
       return Boolean(target && target.element_type === role);

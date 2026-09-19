@@ -33,6 +33,7 @@ export default function DocEditor({
   focusSerial = 0,
   serial = 0,
   editable = true,
+  onHover = () => {},
 }) {
   const rowsRef = useRef({});
   const [flash, setFlash] = useState(null);
@@ -64,8 +65,8 @@ export default function DocEditor({
               className="mx-2 my-3 rounded-xl border border-line bg-black/10 p-2"
             >
               <div className="mb-1 flex items-center gap-2">
-                <span className="font-mono text-[10px] text-slate-500">#{el.source_index}</span>
-                <span className="rounded-md bg-white/[0.05] px-1.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                <span className="font-mono text-[11px] text-slate-400">#{el.source_index}</span>
+                <span className="rounded-md bg-white/[0.05] px-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   table
                 </span>
               </div>
@@ -75,7 +76,7 @@ export default function DocEditor({
                     {row.map((cell, ci) => (
                       <div
                         key={ci}
-                        className="border-line px-2 py-1 text-[11px] leading-snug text-slate-300 [&:not(:last-child)]:border-r"
+                        className="border-line px-2 py-1 text-[12px] leading-snug text-slate-300 [&:not(:last-child)]:border-r"
                       >
                         {cell.text}
                       </div>
@@ -106,7 +107,7 @@ export default function DocEditor({
             transition={{ duration: 0.2 }}
             className={cn(
               "group relative mx-2 rounded-xl border-l-2 px-3 py-1.5 transition-colors",
-              meta ? meta.mark + " " + meta.glow : "border-l-transparent",
+              meta ? meta.mark : "border-l-transparent",
               override && !meta && "border-l-amber-400/70 bg-amber-400/[0.04]",
               fas && "bg-iris-400/[0.07] ring-1 ring-iris-400/40",
               flashing && "bg-rose-400/[0.08] ring-1 ring-rose-400/50"
@@ -115,7 +116,7 @@ export default function DocEditor({
             onMouseLeave={() => onHover?.(null)}
           >
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-[9px] leading-none text-slate-600">#{idx}</span>
+              <span className="font-mono text-[11px] leading-none text-slate-500">#{idx}</span>
               {override && (
                 <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-amber-400" title="edited locally" />
               )}
@@ -124,7 +125,7 @@ export default function DocEditor({
                 onChange={(e) => onChange(idx, { element_type: e.target.value })}
                 disabled={!editable}
                 className={cn(
-                  "cursor-pointer rounded-md border-0 bg-transparent px-1.5 py-0.5 text-[10px] font-semibold outline-none transition-colors disabled:cursor-default",
+                  "cursor-pointer rounded-md border-0 bg-transparent px-1.5 py-0.5 text-[11px] font-semibold outline-none transition-colors disabled:cursor-default",
                   ROLE_BADGE[role] || ROLE_BADGE.paragraph
                 )}
                 title="Element role"
@@ -136,11 +137,11 @@ export default function DocEditor({
                 ))}
               </select>
               {override && (
-                <span className="flex items-center gap-1 rounded-md bg-amber-400/10 px-1.5 text-[9px] font-semibold text-amber-300">
+                <span className="flex items-center gap-1 rounded-md bg-amber-400/10 px-1.5 text-[11px] font-semibold text-amber-300">
                   <PenLine className="h-2.5 w-2.5" /> edited
                 </span>
               )}
-              <span className="ml-auto font-mono text-[9px] text-slate-600">
+              <span className="ml-auto font-mono text-[11px] text-slate-500">
                 {strong ? `${strong.severity}` : ""}
               </span>
             </div>
@@ -175,7 +176,7 @@ export default function DocEditor({
                         <div
                           key={`${issue.code}-${i}`}
                           className={cn(
-                            "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1",
+                            "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1",
                             m.chip
                           )}
                         >
@@ -194,7 +195,7 @@ export default function DocEditor({
                       );
                     })}
                     {list.length > 3 && (
-                      <span className="text-[10px] text-slate-500">+{list.length - 3} more</span>
+                      <span className="text-[11px] text-slate-400">+{list.length - 3} more</span>
                     )}
                   </div>
                 </motion.div>
