@@ -357,3 +357,49 @@ def test_reopen_restore_roundtrip():
     ]
     assert edited_text not in " ".join(restored_texts)
     assert any(original_text.strip()[:30] in t for t in restored_texts)
+
+
+def test_set_title_fix_persists_across_applies_and_reopen():
+    """F-metadata: the title patch survives later applies and a .velox reopen."""
+    import io
+
+    from circuit_networks.api.main import app
+
+    client = TestClient(app)
+    mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    resp = client.post(
+        "/api/process",
+        files={"file": ("manuscript.docx", open_manuscript_bytes(), mime)},
+        data={"profile_id": "production_standard", "review_json": "[]"},
+    )
+    assert resp.status_code == 200, resp.text
+
+    def has_meta_missing(j):
+        return any(i["code"] == "metadata_missing" for i in j["payload"]["preflight_issues"])
+
+    first = resp.json()
+    assert has_meta_missing(first), "manuscript should start with a missing title"
+    jid = first["job_id"]
+
+    r1 = client.post(
+        "/api/apply-edits",
+        json={"job_id": jid, "edits": [], "message": "patch title", "set_title": "Ich und Welt"},
+    )
+    assert r1.status_code == 200, r1.text
+    body1 = r1.json()
+    assert not has_meta_missing(body1), "title patch resolves metadata_missing"
+
+    r2 = client.post(
+        "/api/apply-edits",
+        json={"job_id": jid, "edits": [], "message": "plain re-audit, no set_title"},
+    )
+    assert r2.status_code == 200, r2.text
+    assert not has_meta_missing(r2.json()), "persisted title must survive later applies"
+
+    resume = client.post(
+        "/api/open",
+        files={"file": ("resume_velox.docx", io.BytesIO(Path(body1["velox_docx"]).read_bytes()), mime)},
+    )
+    assert resume.status_code == 200, resume.text
+    assert resume.json()["manifest"].get("set_title") == "Ich und Welt"
+    assert resume.json()["manifest"]["integrity_status"] == "pass"

@@ -302,6 +302,15 @@ def _save_job_meta(job_dir: Path, profile_id: str, filename: str) -> None:
     )
 
 
+def _save_set_title(job_dir: Path, title: str | None) -> None:
+    """Persist the metadata title patch so later applies reuse it (R14/F111)."""
+    meta = _load_job_meta(job_dir)
+    meta["set_title"] = title
+    (job_dir / "job.json").write_text(
+        json.dumps(meta, ensure_ascii=False), encoding="utf-8"
+    )
+
+
 def _load_job_meta(job_dir: Path) -> dict:
     try:
         return json.loads((job_dir / "job.json").read_text(encoding="utf-8"))
@@ -351,6 +360,7 @@ def _finalize_velox(
     message: str,
     edits: list[dict],
     stats: dict | None = None,
+    set_title: str | None = None,
 ) -> tuple[Path, dict]:
     """Copy the formatted docx, embed the manifest, and record a history version."""
     base = Path(result.model.source_path).stem
@@ -380,6 +390,8 @@ def _finalize_velox(
         "integrity_status": result.integrity_status,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+    if set_title:
+        manifest["set_title"] = set_title
     orig = Path(result.model.source_path)
     if orig.is_file():
         manifest["has_original"] = True
@@ -405,6 +417,9 @@ def apply_edits(req: ApplyEditsRequest):
     (job_dir / "edits.json").write_text(
         json.dumps(edits_list, ensure_ascii=False), encoding="utf-8"
     )
+    effective_title = req.set_title if req.set_title is not None else meta.get("set_title")
+    if req.set_title is not None:
+        _save_set_title(job_dir, req.set_title.strip() or None)
 
     result = run_pipeline(
         str(source),
@@ -412,7 +427,7 @@ def apply_edits(req: ApplyEditsRequest):
         output_dir=str(job_dir),
         decisions=_load_reviews(job_dir),
         edits=edits_list,
-        set_title=req.set_title,
+        set_title=effective_title,
     )
     if result.error:
         raise HTTPException(status_code=500, detail=result.error)
@@ -421,7 +436,7 @@ def apply_edits(req: ApplyEditsRequest):
     payload = result.payload()
     velox_path, history = _finalize_velox(
         job_dir, result, profile_id=meta.get("profile_id", "default"), message=message,
-        edits=edits_list, stats=payload["processing_stats"],
+        edits=edits_list, stats=payload["processing_stats"], set_title=effective_title,
     )
     return {
         "filename": meta.get("filename", ""),
@@ -595,11 +610,19 @@ async def apply_open_edits(
         json.dumps(edits_list, ensure_ascii=False), encoding="utf-8"
     )
     profile = _load_profile(manifest.get("profile", "default"))
-    result = run_pipeline(str(original), profile, output_dir=str(job_dir), edits=edits_list)
+    effective_title = manifest.get("set_title") or None
+    result = run_pipeline(
+        str(original),
+        profile,
+        output_dir=str(job_dir),
+        edits=edits_list,
+        set_title=effective_title,
+    )
     if result.error:
         raise HTTPException(status_code=500, detail=result.error)
 
     _save_job_meta(job_dir, profile_id=profile.id, filename=orig_name)
+    _save_set_title(job_dir, effective_title)
     seeded = initial_history(source_meta)
     for entry in manifest.get("history", []) or []:
         seeded.setdefault("versions", []).append(entry)
@@ -610,7 +633,7 @@ async def apply_open_edits(
     payload = result.payload()
     velox_path, history = _finalize_velox(
         job_dir, result, profile_id=profile.id, message=msg, edits=edits_list,
-        stats=payload["processing_stats"],
+        stats=payload["processing_stats"], set_title=effective_title,
     )
     return {
         "filename": orig_name,

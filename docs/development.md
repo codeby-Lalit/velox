@@ -31,7 +31,10 @@ This document captures cross-cutting conventions and how to extend the engine.
   `metadata_missing` is fixed by sending `set_title` on `ApplyEditsRequest`;
   the pipeline passes it to `format_document`, which writes
   `document.core_properties.title` (docProps patch only — no manuscript
-  content is touched). Both fixes need matching `spacing_mismatch` /
+  content is touched). The patch is **persistent**: it is saved in the job's
+  `job.json` and replayed on every later apply, and carried in the `.velox`
+  manifest so a reopen (`/api/open-apply`) keeps the title fixed (R14/F111).
+  Both fixes need matching `spacing_mismatch` /
   `metadata_missing` entries in `frontend/src/lib/roles.js` (`autoFix`).
 - **History (F111):** `velox/history.py` `append_version` takes the cumulative
   edit set; `diff_edits` renders per-version diffs in the UI timeline.
