@@ -18,7 +18,7 @@ export default function IssuesList({ issues, onLocate }) {
     return (
       <div className="py-12 text-center">
         <span className="inline-flex items-center gap-2 rounded-full bg-mint-400/10 px-4 py-2 text-sm font-medium text-mint-300 ring-1 ring-mint-400/30">
-          <span className="h-2 w-2 rounded-full bg-mint-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+          <span className="h-2 w-2 rounded-full bg-mint-400" />
           All clear — no preflight issues
         </span>
       </div>

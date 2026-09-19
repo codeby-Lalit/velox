@@ -85,20 +85,17 @@ A flashy feature is not valuable if it weakens any of the first four.
 
 ## 5. Handling Ambiguity
 
-For uncertain classification:
+The shipped default trust boundary (`core/constants.py`) is one value for both
+`AUTO_THRESHOLD` and `REVIEW_THRESHOLD`. It was tightened to **0.60** (was
+0.70/0.90) so 0.6–0.9 classifications are trusted without a review nag, while
+low-confidence findings stay explicitly manual:
 
 ```text
-confidence >= 0.90
-    → automatic classification
-
-0.70 <= confidence < 0.90
-    → classification + review flag
-
-confidence < 0.70
-    → human review required
+confidence > 0.60  → trusted (classification stands, determinism preserved)
+confidence <= 0.60 → low-confidence manual finding, never applied implicitly
 ```
 
-Thresholds should remain configurable.
+Thresholds remain configurable per profile.
 
 Never convert low-confidence content into a structural element without exposing that uncertainty.
 

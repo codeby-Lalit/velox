@@ -23,9 +23,16 @@ This document captures cross-cutting conventions and how to extend the engine.
 - **Formatting:** extend the profile-driven application in
   `formatter/engine.py`.
 - **Edits (F110):** run the pipeline with `edits=[{kind, source_index, text?,
-  element_type?}]`. `core/pipeline.py` derives `text_overrides`/`role_decisions`
-  from them and both the formatter and the integrity checker consume them, so
-  declared changes pass integrity by construction (R24).
+  element_type?, line_spacing?}]`. `core/pipeline.py` derives
+  `text_overrides`/`role_decisions`/`spacing_overrides` from them and both the
+  formatter and the integrity checker consume them, so declared changes pass
+  integrity by construction (R24). `line_spacing` carries the
+  `spacing_mismatch` one-click fix — formatting-only, no text touched.
+  `metadata_missing` is fixed by sending `set_title` on `ApplyEditsRequest`;
+  the pipeline passes it to `format_document`, which writes
+  `document.core_properties.title` (docProps patch only — no manuscript
+  content is touched). Both fixes need matching `spacing_mismatch` /
+  `metadata_missing` entries in `frontend/src/lib/roles.js` (`autoFix`).
 - **History (F111):** `velox/history.py` `append_version` takes the cumulative
   edit set; `diff_edits` renders per-version diffs in the UI timeline.
 - **.velox format (F112):** `velox/package.py` embeds `velox/manifest.json` and
@@ -111,10 +118,9 @@ bundled via `@fontsource-variable/*`), which keeps the offline constraint (R1).
   `review.json` per job, replayed on every re-run (R14), reported in the audit
   payload under `review.decisions` (R16), and cleared from the queue after a
   "Re-analyze with decisions" run.
-- UI design system (R22/R23): **Dark Neumorphism** — reuse `neu-raised`,
-  `neu-inset`, `neu-chip` from `index.css` (no borders; dual soft shadows on
-  #121212/#1a1a1a) + Framer Motion springs (whileTap 0.98, stiffness 300,
-  damping 20).
+- UI design system (R22/R23): Light Premium — reuse the raised/inset/chip
+  classes from `index.css` (off-white paper, soft glass layers) + subtle Framer
+  Motion springs; spec lives in RULES.md R22/R23, do not restate it here.
 - API client: `frontend/src/lib/api.js` talks to `/api/*` served by FastAPI
   (`processDocument`, `processBatch`, `fetchProfiles`, `applyEdits`,
   `fetchHistory`, `openVelox`, `applyOpenEdits`).
@@ -137,7 +143,7 @@ falling back to the source `frontend/`.
 1. `pip install -e backend`
 2. `npm install && npm run build` in `frontend/`
 3. `python -m PyInstaller packaging/velox.spec` → `dist/CircuitNetworks\`
-4. (optional) `ISCC packaging/circuit-networks.iss` → `release\CircuitNetworks-Setup-0.2.1.exe`
+4. (optional) `ISCC packaging/circuit-networks.iss` → `release\CircuitNetworks-Setup-0.3.0.exe`
 
 The PyInstaller bundle (`datas` in `packaging/velox.spec`) includes the built
 React app under `_internal/frontend` and profiles under `_internal/profiles`.

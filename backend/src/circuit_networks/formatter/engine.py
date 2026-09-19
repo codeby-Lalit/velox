@@ -360,16 +360,24 @@ def format_document(
     model: DocumentModel,
     structure: StructureMap,
     text_overrides: dict[int, str] | None = None,
+    set_title: str | None = None,
 ) -> None:
     """Produce output_path from a copy of source_path with profile formatting.
 
     ``text_overrides`` maps paragraph index -> intended text for user-driven
     edits (F110). Only explicitly edited paragraphs are rewritten; everything
-    else stays byte-preserved from the source copy (R3/R8)."""
+    else stays byte-preserved from the source copy (R3/R8).
+    ``set_title`` fills an empty core-property title (docProps/core.xml only —
+    never body content), resolving metadata_missing without touching words."""
     output_path = str(Path(output_path))
     shutil.copyfile(source_path, output_path)
 
     document = Document(output_path)
+    if set_title and set_title.strip():
+        try:
+            document.core_properties.title = set_title.strip()
+        except Exception:
+            pass
     _apply_section_format(document, profile)
 
     paragraphs = document.paragraphs

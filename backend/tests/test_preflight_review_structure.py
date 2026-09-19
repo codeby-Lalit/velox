@@ -63,7 +63,7 @@ def test_review_apply_accept_raises_confidence(manuscript):
             break
     if reviewed:
         applied = apply_decisions(structure, reviewed)
-        assert applied.get(reviewed[0].source_index).confidence >= 0.9
+        assert applied.get(reviewed[0].source_index).confidence >= C.AUTO_THRESHOLD
 
 
 def test_review_reject_to_paragraph(manuscript):

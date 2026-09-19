@@ -71,7 +71,7 @@ export default function Dropzone({ files, onFiles }) {
         >
           <UploadCloud className="h-7 w-7 text-aqua-300" />
         </motion.div>
-        <p className="text-[15px] font-medium text-white">
+        <p className="text-[15px] font-medium text-ink-900">
           Drop your manuscript{files.length ? "s" : ""} here
         </p>
         <p className="mt-1 text-sm text-slate-400">
@@ -89,7 +89,7 @@ export default function Dropzone({ files, onFiles }) {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              className="mt-6 space-y-2 rounded-xl px-4 py-3 text-left ring-1 ring-line bg-white/[0.04]"
+              className="mt-6 space-y-2 rounded-xl px-4 py-3 text-left ring-1 ring-line bg-white/50"
               onClick={(e) => e.stopPropagation()}
             >
               {files.map((file, i) => (
@@ -105,13 +105,13 @@ export default function Dropzone({ files, onFiles }) {
                       <FileText className="h-4.5 w-4.5 text-iris-300" />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-white">{file.name}</p>
+                      <p className="truncate text-sm font-medium text-ink-900">{file.name}</p>
                       <p className="text-xs text-slate-400">{formatBytes(file.size)}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => remove(file.name)}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-rose-300"
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
                     aria-label={`Remove ${file.name}`}
                   >
                     <X className="h-4 w-4" />
@@ -121,7 +121,7 @@ export default function Dropzone({ files, onFiles }) {
               {files.length > 1 && (
                 <button
                   onClick={() => onFiles([])}
-                  className="w-full rounded-lg px-3 py-1.5 text-center text-[11px] font-medium text-slate-400 hover:bg-white/10 hover:text-rose-300"
+                  className="w-full rounded-lg px-3 py-1.5 text-center text-[11px] font-medium text-slate-400 hover:bg-rose-500/10 hover:text-rose-400"
                 >
                   Clear all ({files.length})
                 </button>

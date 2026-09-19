@@ -29,7 +29,7 @@ class Classification:
 
     @property
     def needs_review(self) -> bool:
-        return self.confidence < C.AUTO_THRESHOLD
+        return self.confidence <= C.AUTO_THRESHOLD
 
     def to_json(self) -> dict:
         return {
@@ -38,8 +38,10 @@ class Classification:
             "reason_codes": sorted(self.reason_codes),
             "source_index": self.source_index,
             "subtype": self.subtype,
-            "review_required": self.confidence < C.REVIEW_THRESHOLD,
-            "review_suggested": C.REVIEW_THRESHOLD <= self.confidence < C.AUTO_THRESHOLD,
+            "review_required": self.confidence <= C.REVIEW_THRESHOLD,
+            "review_suggested": (
+                C.REVIEW_THRESHOLD < self.confidence < C.AUTO_THRESHOLD
+            ),
         }
 
 

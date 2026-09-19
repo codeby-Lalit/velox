@@ -8,7 +8,7 @@ export default function BrandMark({ size = 40 }) {
   return (
     <motion.div
       aria-hidden
-      className="relative grid place-items-center rounded-2xl bg-gradient-to-br from-aqua-400/15 via-ink-800 to-iris-400/15 ring-1 ring-aqua-400/30 shadow-glow"
+      className="relative grid place-items-center rounded-2xl bg-gradient-to-br from-white/[0.07] via-ink-800 to-white/[0.02] ring-1 ring-white/10"
       style={{ width: size, height: size }}
     >
       <motion.svg

@@ -84,8 +84,8 @@ Open/Resume (api /api/open, /api/open-apply) ──→ restore any version (F112
 - `views/OpenedView.jsx` — re-opened `.velox`: "Resume editing" or "Restore"
   both call `/api/open-apply`, which re-runs the **embedded original** with the
   chosen edits, preserving index semantics (R14).
-- Design system: Dark Neumorphism (`neu-raised`/`neu-inset` classes in
-  `index.css`) + Framer Motion springs — see RULES.md R22/R23.
+- Design system: Light Premium theme (soft raised/inset/chip classes in
+  `index.css`) + subtle Framer Motion springs — see RULES.md R22/R23.
 
 ## Desktop offline packaging
 

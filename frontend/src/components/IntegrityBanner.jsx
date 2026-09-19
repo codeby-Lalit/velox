@@ -16,7 +16,7 @@ export default function IntegrityBanner({ status, source, output }) {
       <motion.div
         initial={{ scale: 0, rotate: -60 }}
         animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.15 }}
+        transition={{ type: "spring", stiffness: 260, damping: 33, delay: 0.15 }}
         className={cn(
           "grid h-12 w-12 place-items-center rounded-full",
           pass ? "bg-mint-400/15" : "bg-rose-400/15"

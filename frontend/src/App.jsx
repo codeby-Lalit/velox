@@ -8,7 +8,7 @@ import {
   openVelox,
   applyOpenEdits,
 } from "./lib/api";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, X } from "lucide-react";
 import ImportView from "./views/ImportView";
 import ProcessingView from "./views/ProcessingView";
 import BatchResultsView from "./views/BatchResultsView";
@@ -34,9 +34,11 @@ export default function App() {
   const [restoringId, setRestoringId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [editorSerial, setEditorSerial] = useState(0);
+  const [reviewPrompt, setReviewPrompt] = useState(null);
 
   const controllerRef = useRef(null);
   const timerRef = useRef(null);
+  const jobRetryRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -49,6 +51,32 @@ export default function App() {
       .catch(() => active && setProfiles([]));
     return () => {
       active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Premium motion: parallax-drift the glass orbs on scroll and give cards
+    // marked [data-tilt] a live 3D tilt that follows the pointer. Registered
+    // once at app root so every screen gets it.
+    const root = document.documentElement;
+    const onScroll = () => {
+      root.style.setProperty("--parallax", `${window.scrollY * 0.05}px`);
+    };
+    const onMove = (e) => {
+      const el = e.target && e.target.closest ? e.target.closest("[data-tilt]") : null;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5;
+      const py = (e.clientY - r.top) / r.height - 0.5;
+      el.style.setProperty("--ry", `${(px * 8).toFixed(2)}deg`);
+      el.style.setProperty("--rx", `${(-py * 8).toFixed(2)}deg`);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("mousemove", onMove);
     };
   }, []);
 
@@ -157,15 +185,46 @@ export default function App() {
   }, []);
 
   const handleEditorApply = useCallback(
-    async ({ edits, message }) => {
+    async ({ edits, message, setTitle }) => {
       setBusy(true);
       try {
         if (!result?.job_id) throw new Error("Job context lost — reprocess the document first.");
-        const data = await applyEdits({ jobId: result.job_id, edits, message });
+        const data = await applyEdits({ jobId: result.job_id, edits, message, setTitle });
         setResult(data);
         setEditorSerial((s) => s + 1);
         return data; // EditorView awaits to clear its submit spinner
       } catch (err) {
+        // Job context died under us (dir swept after a restart / an id that
+        // the old regex rejected). If we still hold the dropped source file,
+        // silently recreate the context and re-apply the exact same edits
+        // once — the workspace never "crashes" into the import screen.
+        const lostContext = /invalid job id|job not found/i.test(err.message || "");
+        if (lostContext && !jobRetryRef.current && files[0] && edits?.length) {
+          jobRetryRef.current = true;
+          try {
+            const fresh = await processDocument({
+              file: files[0],
+              profileId,
+              reviews: [],
+              signal: null,
+            });
+            const data = await applyEdits({
+              jobId: fresh.job_id,
+              edits,
+              message,
+              setTitle,
+            });
+            setResult(data);
+            setEditorSerial((s) => s + 1);
+            jobRetryRef.current = false;
+            return data;
+          } catch (retryErr) {
+            jobRetryRef.current = false;
+            setError(retryErr.message || "Apply edits failed");
+            setPhase("error");
+            throw retryErr;
+          }
+        }
         setError(err.message || "Apply edits failed");
         setPhase("error");
         throw err;
@@ -173,7 +232,7 @@ export default function App() {
         setBusy(false);
       }
     },
-    [result]
+    [result, files, profileId]
   );
 
   const handleOpenedRestore = useCallback(
@@ -245,6 +304,9 @@ export default function App() {
 
   return (
     <div className="circuit-bg min-h-full">
+      <div className="orb orb-a" />
+      <div className="orb orb-b" />
+      <div className="orb orb-c" />
       <AnimatePresence mode="wait">
         {(phase === "idle" || phase === "error") && (
           <motion.div key="import">
@@ -257,11 +319,11 @@ export default function App() {
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-rose-300">Processing failed</p>
-                  <p className="mt-0.5 text-xs text-rose-200/80">{error}</p>
+                  <p className="mt-0.5 text-xs text-rose-500/90">{error}</p>
                 </div>
                 <button
                   onClick={() => setPhase("idle")}
-                  className="rounded-lg p-1 text-rose-300 hover:bg-white/10"
+                  className="rounded-lg p-1 text-rose-300 hover:bg-rose-500/10"
                   aria-label="Dismiss"
                 >
                   <X className="h-4 w-4" />
@@ -292,7 +354,7 @@ export default function App() {
 
         {(phase === "result" || phase === "editor") && result && (
           <WorkspaceView
-            key={`ws-${result.job_id || result.payload.generated_at}-${editorSerial}`}
+            key={`ws-${result.job_id || result.payload?.generated_at || "job"}-${editorSerial}`}
             result={result}
             onApply={handleEditorApply}
             onReanalyze={handleReanalyze}
@@ -303,6 +365,7 @@ export default function App() {
             onRunAgain={() => startProcess([], activeFile ? [activeFile] : undefined)}
             busy={busy}
             restoringId={restoringId}
+            onReviewPrompt={setReviewPrompt}
           />
         )}
 
@@ -342,8 +405,58 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Low-confidence review prompt — survives the auto-fix workspace remount */}
+      <AnimatePresence>
+        {reviewPrompt && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setReviewPrompt(null)}
+              className="absolute inset-0 bg-ink-700/30 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 14, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 380, damping: 34 }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Low-confidence review needed"
+              className="glass-strong relative w-full max-w-md rounded-3xl p-6"
+            >
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-400/15 text-amber-400 ring-1 ring-amber-400/30">
+                  <AlertTriangle className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-ink-900">Auto-fix complete</h3>
+                  <p className="mt-1 text-[12px] leading-relaxed text-slate-400">
+                    {reviewPrompt.fixed > 0
+                      ? `${reviewPrompt.fixed} element${reviewPrompt.fixed === 1 ? "" : "s"} fixed and committed. `
+                      : ""}
+                    {reviewPrompt.low} low-confidence element{reviewPrompt.low === 1 ? "" : "s"} need
+                    manual or human review — open each finding and Accept it or set the role from the
+                    right panel.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => setReviewPrompt(null)}
+                  className="btn-ripple relative inline-flex h-9 items-center overflow-hidden rounded-xl bg-gradient-to-r from-mint-400 to-aqua-400 px-4 text-xs font-bold text-ink-950 hover:brightness-110"
+                >
+                  OK, review later
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <footer className="mt-10 pb-8 text-center">
-        <p className="mx-auto max-w-3xl px-4 text-[11px] text-balance text-slate-400">
+        <p className="mx-auto max-w-md px-4 text-[11px] text-pretty text-slate-400">
           Circuit Networks · offline deterministic engine · no cloud, no AI · HackNIMA 2026
         </p>
       </footer>

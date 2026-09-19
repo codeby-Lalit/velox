@@ -28,7 +28,7 @@ export default function HistoryTimeline({ history, onRestore, restoringId }) {
     <div className="neu-raised rounded-3xl p-5 sm:p-6">
       <div className="mb-4 flex items-center gap-2">
         <GitCommitVertical className="h-4 w-4 text-aqua-300" />
-        <h3 className="text-sm font-semibold text-white">Edit history</h3>
+        <h3 className="text-sm font-semibold text-ink-900">Edit history</h3>
         <Badge tone="accent" dot={false}>{versions.length} version{versions.length === 1 ? "" : "s"}</Badge>
       </div>
 
@@ -43,7 +43,7 @@ export default function HistoryTimeline({ history, onRestore, restoringId }) {
                 layout
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                transition={{ type: "spring", stiffness: 300, damping: 36 }}
                 className="relative cursor-pointer"
                 onClick={() => setSelected(i)}
               >
@@ -62,8 +62,8 @@ export default function HistoryTimeline({ history, onRestore, restoringId }) {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[12px] font-bold text-white">{v.id}</span>
-                      <span className="text-[13px] text-slate-200">{v.message || "automatic"}</span>
+                      <span className="font-mono text-[12px] font-bold text-ink-900">{v.id}</span>
+                      <span className="text-[13px] text-slate-500">{v.message || "automatic"}</span>
                       {head && <Badge tone="accent" dot={false}>HEAD</Badge>}
                       {isSelected && !head && <Badge tone="warning">selected</Badge>}
                     </div>

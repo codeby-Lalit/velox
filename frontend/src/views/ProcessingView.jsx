@@ -8,7 +8,7 @@ export default function ProcessingView({ current, value, fileName, onCancel }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/85 p-6 backdrop-blur-xl"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-700/35 p-6 backdrop-blur-xl"
       onClick={onCancel}
     >
       <motion.div
@@ -16,12 +16,12 @@ export default function ProcessingView({ current, value, fileName, onCancel }) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-3xl border border-line bg-ink-900/95 p-8 shadow-2xl"
+        className="glass-strong w-full max-w-lg rounded-3xl p-8 shadow-2xl"
       >
         <div className="mb-6 flex items-center gap-4">
           <BrandMark size={40} />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-white">{fileName}</p>
+            <p className="truncate text-sm font-semibold text-ink-900">{fileName}</p>
             <p className="text-xs text-slate-500">Processing locally — no data leaves your device</p>
           </div>
           <motion.div className="ml-auto flex items-center gap-2">

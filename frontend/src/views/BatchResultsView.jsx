@@ -35,7 +35,7 @@ function ResultCard({ item, index, onOpen }) {
           <FileText className="h-4.5 w-4.5 text-iris-300" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-white">{base}</p>
+          <p className="truncate text-sm font-semibold text-ink-900">{base}</p>
           <p className="flex items-center gap-1.5 text-xs text-slate-500">
             <Clock className="h-3 w-3" />
             {stats.elapsed_ms != null ? `${(stats.elapsed_ms / 1000).toFixed(1)}s` : "—"}
@@ -54,8 +54,8 @@ function ResultCard({ item, index, onOpen }) {
           { label: "Warnings", value: stats.preflight_warnings },
           { label: "Review items", value: stats.review_items },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl bg-ink-950/50 px-2 py-2.5">
-            <p className="font-mono text-lg font-semibold text-white">{s.value ?? 0}</p>
+          <div key={s.label} className="rounded-xl bg-white/60 px-2 py-2.5">
+            <p className="font-mono text-lg font-semibold text-ink-900">{s.value ?? 0}</p>
             <p className="text-[11px] uppercase tracking-wider text-slate-400">{s.label}</p>
           </div>
         ))}
@@ -73,7 +73,7 @@ function ResultCard({ item, index, onOpen }) {
         {item.output_docx && (
           <a
             href={downloadUrl(item.output_docx)}
-            className="inline-flex h-9 items-center gap-2 rounded-xl border border-line px-3 text-xs font-medium text-slate-300 hover:bg-white/[0.06] hover:text-white"
+            className="inline-flex h-9 items-center gap-2 rounded-xl border border-line px-3 text-xs font-medium text-slate-400 hover:bg-slate-800/25 hover:text-ink-900"
           >
             <Download className="h-3.5 w-3.5" /> DOCX
           </a>
@@ -81,7 +81,7 @@ function ResultCard({ item, index, onOpen }) {
         {item.audit_html && (
           <a
             href={downloadUrl(item.audit_html)}
-            className="inline-flex h-9 items-center gap-2 rounded-xl border border-line px-3 text-xs font-medium text-slate-300 hover:bg-white/[0.06] hover:text-white"
+            className="inline-flex h-9 items-center gap-2 rounded-xl border border-line px-3 text-xs font-medium text-slate-400 hover:bg-slate-800/25 hover:text-ink-900"
           >
             <Layers className="h-3.5 w-3.5" /> HTML
           </a>
@@ -89,7 +89,7 @@ function ResultCard({ item, index, onOpen }) {
         {item.audit_json && (
           <a
             href={downloadUrl(item.audit_json)}
-            className="inline-flex h-9 items-center gap-2 rounded-xl border border-line px-3 text-xs font-medium text-slate-300 hover:bg-white/[0.06] hover:text-white"
+            className="inline-flex h-9 items-center gap-2 rounded-xl border border-line px-3 text-xs font-medium text-slate-400 hover:bg-slate-800/25 hover:text-ink-900"
           >
             <FileJson className="h-3.5 w-3.5" /> JSON
           </a>
@@ -122,20 +122,20 @@ export default function BatchResultsView({ results, onOpen, onBack, onRunAgain }
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <button
           onClick={onBack}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line text-slate-400 hover:bg-white/[0.06] hover:text-white"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line text-slate-400 hover:bg-slate-800/25 hover:text-ink-900"
           aria-label="Back"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-semibold text-white">Batch results</p>
+          <p className="text-[15px] font-semibold text-ink-900">Batch results</p>
           <p className="text-xs text-slate-500">
             F107 · {results.length} manuscripts · {passed} verified · {failed} failed
           </p>
         </div>
         <button
           onClick={onRunAgain}
-          className="inline-flex h-9 items-center gap-2 rounded-xl border border-line px-3 text-xs font-medium text-slate-300 hover:bg-white/[0.06] hover:text-white"
+          className="inline-flex h-9 items-center gap-2 rounded-xl border border-line px-3 text-xs font-medium text-slate-400 hover:bg-slate-800/25 hover:text-ink-900"
         >
           <Layers2 className="h-3.5 w-3.5" /> Reprocess batch
         </button>

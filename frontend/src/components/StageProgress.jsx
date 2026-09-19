@@ -16,7 +16,7 @@ export default function StageProgress({ current, value }) {
   return (
     <div className="mx-auto w-full max-w-md">
       {/* pipeline progress rail */}
-      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]">
+      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-slate-800/15">
         <motion.div
           className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-aqua-400 to-iris-400"
           animate={{ width: `${value}%` }}
@@ -39,7 +39,7 @@ export default function StageProgress({ current, value }) {
                   "grid h-7 w-7 shrink-0 place-items-center rounded-full ring-1",
                   state === "done" && "bg-mint-400/15 ring-mint-400/30 text-mint-300",
                   state === "active" && "bg-aqua-400/15 ring-aqua-400/50 text-aqua-300",
-                  state === "todo" && "bg-white/[0.04] ring-line text-slate-500"
+                  state === "todo" && "bg-white/50 ring-line text-slate-500"
                 )}
               >
                 {state === "done" ? (
@@ -52,7 +52,7 @@ export default function StageProgress({ current, value }) {
                 <span
                   className={cn(
                     "block text-[13px] font-medium tracking-tight",
-                    state === "todo" ? "text-slate-500" : "text-white"
+                    state === "todo" ? "text-slate-500" : "text-ink-900"
                   )}
                 >
                   {s.label}
@@ -61,7 +61,7 @@ export default function StageProgress({ current, value }) {
               </span>
               {state === "active" && (
                 <motion.span
-                  className="h-2 w-2 rounded-full bg-aqua-400 shadow-[0_0_10px_rgba(34,211,238,0.4)]"
+                  className="h-2 w-2 rounded-full bg-aqua-400"
                   animate={{ opacity: [1, 0.35, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 />

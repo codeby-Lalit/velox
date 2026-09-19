@@ -28,6 +28,24 @@ def test_corpus_pipeline_passes(path: Path, tmp_path):
     assert isinstance(stats["pages_estimate"], int) and stats["pages_estimate"] >= 1
     assert isinstance(payload["structure_view"]["rows"], list)
 
+    # F200: before/after stats prove content preservation (R3/R4).
+    src = payload["source_stats"]
+    for key in ("words", "characters", "paragraphs", "headings", "captions", "tables", "pages_estimate"):
+        assert key in src, f"source_stats missing {key}"
+    assert src["words"] == stats["words"]
+    assert src["characters"] == stats["characters"]
+    assert src["paragraphs"] == stats["paragraphs"]
+    assert src["headings"] == stats["headings"]
+
+    # F200: the pristine compliance snapshot exposes parity issue counts so the
+    # Compare panel can prove fixes reduced issues in place. With no edits or
+    # decisions supplied, the pre-computed snapshot equals the post-flight run.
+    iss = src["issues"]
+    assert "total" in iss and "errors" in iss and "warnings" in iss and "info" in iss
+    assert iss["total"] == iss["errors"] + iss["warnings"] + iss["info"]
+    after = stats["preflight_errors"] + stats["preflight_warnings"] + stats["preflight_info"]
+    assert iss["total"] == after
+
 
 def test_corpus_headers_footers_extracted():
     """F002: header/footer text is captured for samples that define them."""

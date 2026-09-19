@@ -8,7 +8,7 @@
 ## Quick Start — Desktop Installer (Recommended)
 
 1. Download the installer from the [latest GitHub Release](https://github.com/codeby-Lalit/velox/releases/latest):
-   `CircuitNetworks-Setup-0.2.1.exe`
+   `CircuitNetworks-Setup-0.3.0.exe`
 2. Run the installer; it creates a Start-Menu shortcut and a desktop icon.
 3. Launch **Circuit Networks** — the offline desktop app opens at `http://127.0.0.1:8000`.
 4. Select a publisher profile, drop a `.docx` file (or multiple files for batch, **F107**), and click **Analyze & Format**.
@@ -56,13 +56,13 @@ The app runs at `127.0.0.1:8000` — all processing happens locally; nothing lea
 | R3 | Content never rewritten — integrity verified (declared edits only) | **Done** |
 | R11 | Path-traversal-safe upload isolation + file size cap | **Done** |
 | R13 | Linear O(n) audits + 400+ page stress-tested (unstructured, tables, no-heading) | **Done** |
-| R22 | Dark Neumorphism design system (#121212 surfaces, dual shadows, no borders) | **Done** |
-| R23 | Framer Motion springs (whileTap 0.98, stiffness 300 / damping 20) | **Done** |
+| R22 | Light Premium theme (off-white paper, soft glass layers, ink text) | **Done** |
+| R23 | Subtle Framer Motion springs — tactile, never gimmicky | **Done** |
 
 ### React Frontend (premium UI)
 
-- **Dark Neumorphism** circuit-themed interface (R22) — flat #121212 surfaces,
-  dual soft shadows, no borders — with Framer Motion springs (R23)
+- **Light Premium** manuscript-studio interface (R22) — off-white paper, soft
+  frosted/glass surfaces, ink text — with subtle Framer Motion springs (R23)
 - Staged pipeline animation with cancel support
 - Profile picker (F103)
 - Batch mode: multi-file dropzone → batch results table → drill into individual reports
@@ -230,7 +230,7 @@ scripts\build_desktop.bat
 
 Produces:
 - `dist\CircuitNetworks\CircuitNetworks.exe` — standalone COLLECT bundle
-- `release\CircuitNetworks-Setup-0.2.1.exe` — Inno Setup installer (~50 MB)
+- `release\CircuitNetworks-Setup-0.3.0.exe` — Inno Setup installer
 
 The installer:
 - Creates a Start-Menu shortcut and desktop icon

@@ -17,6 +17,7 @@ from ..classifier.heading import classify_document
 from ..preflight.engine import run_preflight
 from ..reports.audit import (
     build_audit_payload,
+    build_source_stats,
     write_html_report,
     write_json_report,
 )
@@ -64,6 +65,7 @@ class PipelineResult:
                     for d in getattr(self, "_decisions", [])
                 ]
             },
+            source_stats=getattr(self, "_source_stats", None),
             elapsed_ms=self.elapsed_ms,
             peak_memory_bytes=self.peak_memory_bytes,
         )
@@ -82,15 +84,20 @@ def run_pipeline(
     output_dir: str | None = None,
     decisions: list[ReviewDecision] | None = None,
     edits: list[dict] | None = None,
+    set_title: str | None = None,
 ) -> PipelineResult:
     """Run the full offline manuscript pipeline for one DOCX file.
 
     ``edits`` (F110) are user-driven manual changes: each item is
-    ``{"kind": "paragraph", "source_index": i, "text": ..., "element_type": ...}``
-    and may carry a text replacement, a role change, or both.
+    ``{"kind": "paragraph", "source_index": i, "text": ..., "element_type": ...,
+    "line_spacing": ...}`` and may carry a text replacement, a role change, a
+    formatting-only line-spacing fix, or any combination.
+    ``set_title`` (F-metadata) fills an empty core-property title — a
+    metadata-only fix in docProps/core.xml that never touches body text.
     """
     text_overrides = _text_overrides(edits)
     role_decisions = _role_decisions(edits)
+    spacing_overrides = _spacing_overrides(edits)
     workdir = output_dir or tempfile.mkdtemp(prefix="circuit-networks-")
     Path(workdir).mkdir(parents=True, exist_ok=True)
     base = Path(source_path).stem
@@ -110,6 +117,21 @@ def run_pipeline(
         result.stage = "classify"
         structure = classify_document(model)
         result.structure = structure
+        # F200: snapshot the pristine original before edits/formatting/decisions
+        # mutate the model, so the audit can prove content preservation (R3/R4).
+        result._source_stats = build_source_stats(model, structure)
+        # F200: "before" compliance state — the same audit run on the pristine
+        # classified structure (before review decisions / manual edits mutate it)
+        # so the Compare panel can prove the fixes reduced issues in place.
+        raw_issues = run_preflight(
+            model, structure, profile=profile, source_path=source_path
+        )
+        result._source_stats["issues"] = {
+            "total": len(raw_issues),
+            "errors": sum(1 for i in raw_issues if i.severity == "error"),
+            "warnings": sum(1 for i in raw_issues if i.severity == "warning"),
+            "info": sum(1 for i in raw_issues if i.severity == "info"),
+        }
 
         if role_decisions or decisions:
             result.stage = "review"
@@ -119,6 +141,13 @@ def run_pipeline(
         if text_overrides:
             result.stage = "edits"
             _apply_text_overrides(model, text_overrides)
+
+        if spacing_overrides:
+            result.stage = "edits"
+            _apply_spacing_overrides(model, spacing_overrides)
+
+        if set_title:
+            model.metadata.title = set_title.strip()
 
         result.stage = "preflight"
         result.issues = run_preflight(
@@ -134,6 +163,7 @@ def run_pipeline(
             model,
             result.structure,
             text_overrides=text_overrides,
+            set_title=set_title,
         )
         result.output_docx = output_docx
 
@@ -186,12 +216,30 @@ def _role_decisions(edits: list[dict] | None) -> list[ReviewDecision]:
     return decisions
 
 
+def _spacing_overrides(edits: list[dict] | None) -> dict[int, float]:
+    out: dict[int, float] = {}
+    for e in edits or []:
+        if e.get("kind", "paragraph") == "paragraph" and e.get("line_spacing"):
+            out[int(e.get("source_index", -1))] = float(e["line_spacing"])
+    return out
+
+
 def _apply_text_overrides(model, overrides: dict[int, str]) -> None:
     by_index = {p.index: p for p in model.paragraphs}
     for idx, text in overrides.items():
         p = by_index.get(idx)
         if p is not None:
             p.text = text
+
+
+def _apply_spacing_overrides(model, overrides: dict[int, float]) -> None:
+    """Formatting-only fixes: normalize body paragraphs to the profile line
+    spacing. Words are never touched, so integrity (R4) is unaffected."""
+    by_index = {p.index: p for p in model.paragraphs}
+    for idx, line_spacing in overrides.items():
+        p = by_index.get(idx)
+        if p is not None:
+            p.line_spacing = line_spacing
 
 
 def version_string() -> str:

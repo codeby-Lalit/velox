@@ -123,6 +123,71 @@ def test_pipeline_undeclared_change_still_fails_integrity(manuscript, tmp_path):
     assert any(m["kind"] == "paragraph_text" for m in report.mismatches)
 
 
+def test_pipeline_spacing_fix_no_rule_break(manuscript_document, tmp_path):
+    """F-format: a line-spacing fix (formatting only) removes spacing_mismatch,
+    keeps every word identical, and introduces no other preflight rule."""
+    path = tmp_path / "spacing.docx"
+    doc = manuscript_document
+    target = next(
+        p for p in doc.paragraphs if p.text.strip().startswith("Intro paragraph two")
+    )
+    target.paragraph_format.line_spacing = 2.0
+    doc.save(str(path))
+
+    profile = ProfileConfig()
+    scan = run_pipeline(str(path), profile, output_dir=str(tmp_path / "scan"))
+    assert scan.error is None, scan.error
+    baseline_codes = {i.code for i in scan.issues}
+    spacing = [i for i in scan.issues if i.code == "spacing_mismatch"]
+    assert spacing, "spacing mismatch must be flagged before the fix"
+    target_idx = spacing[0].source_index
+    expected = spacing[0].details["expected"]
+
+    fixed = run_pipeline(
+        str(path),
+        profile,
+        output_dir=str(tmp_path / "fixed"),
+        edits=[{"kind": "paragraph", "source_index": target_idx, "line_spacing": expected}],
+    )
+    assert fixed.error is None, fixed.error
+    assert fixed.integrity_status == "pass"
+    fixed_codes = {i.code for i in fixed.issues}
+    assert "spacing_mismatch" not in fixed_codes
+    assert fixed_codes <= baseline_codes, f"fix introduced rules: {fixed_codes - baseline_codes}"
+    assert fixed.integrity.source_words == fixed.integrity.output_words
+    assert fixed.integrity.source_chars == fixed.integrity.output_chars
+    assert not any(
+        m["kind"] in ("paragraph_text", "word_count", "character_count", "fingerprint", "cell_text")
+        for m in fixed.integrity.mismatches
+    ), "words/paragraphs must be byte-identical after a formatting-only fix"
+
+
+def test_pipeline_title_fix_no_rule_break(manuscript_document, tmp_path):
+    """F-metadata: filling the empty core title resolves metadata_missing,
+    keeps content identical, and introduces no other preflight rule."""
+    path = tmp_path / "meta.docx"
+    manuscript_document.save(str(path))
+
+    profile = ProfileConfig()
+    scan = run_pipeline(str(path), profile, output_dir=str(tmp_path / "scan"))
+    assert any(i.code == "metadata_missing" for i in scan.issues)
+    baseline_codes = {i.code for i in scan.issues}
+
+    fixed = run_pipeline(
+        str(path), profile, output_dir=str(tmp_path / "fixed"), set_title="My Paper Title"
+    )
+    assert fixed.error is None, fixed.error
+    assert fixed.integrity_status == "pass"
+    fixed_codes = {i.code for i in fixed.issues}
+    assert "metadata_missing" not in fixed_codes
+    assert fixed_codes <= baseline_codes, f"fix introduced rules: {fixed_codes - baseline_codes}"
+    assert fixed.integrity.source_words == fixed.integrity.output_words
+
+    from docx import Document as WordDocument
+
+    assert WordDocument(fixed.output_docx).core_properties.title == "My Paper Title"
+
+
 def _all_output_text(docx_path) -> str:
     from docx import Document
 

@@ -192,7 +192,7 @@ export default function ResultsView({
                     <motion.span
                       layoutId="tab-pill"
                       className="absolute inset-0 rounded-xl bg-white/[0.07] ring-1 ring-line"
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      transition={{ type: "spring", stiffness: 380, damping: 40 }}
                     />
                   )}
                   <span className="relative z-10 flex items-center gap-1.5">

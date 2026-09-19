@@ -31,11 +31,16 @@ export async function processBatch({ files, profileId, signal }) {
   return data;
 }
 
-export async function applyEdits({ jobId, edits, message }) {
+export async function applyEdits({ jobId, edits, message, setTitle }) {
   const res = await fetch(`${API}/apply-edits`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ job_id: jobId, edits, message }),
+    body: JSON.stringify({
+      job_id: jobId,
+      edits,
+      message,
+      ...(setTitle ? { set_title: setTitle } : {}),
+    }),
   });
   const data = await res.json();
   if (!res.ok) {

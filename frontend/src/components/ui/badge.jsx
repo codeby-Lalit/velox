@@ -5,7 +5,7 @@ const tones = {
   warning: "bg-amber-400/12 text-amber-300 ring-amber-400/25",
   error: "bg-rose-400/12 text-rose-300 ring-rose-400/25",
   info: "bg-aqua-400/12 text-aqua-300 ring-aqua-400/25",
-  neutral: "bg-white/[0.06] text-slate-300 ring-white/10",
+  neutral: "bg-slate-800/10 text-slate-500 ring-slate-800/15",
   accent: "bg-iris-400/12 text-iris-300 ring-iris-400/25",
 };
 

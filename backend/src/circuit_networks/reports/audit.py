@@ -52,6 +52,51 @@ def _word_count(texts) -> int:
     return sum(len(re.findall(r"\S+", t or "")) for t in texts)
 
 
+# Before/after metrics shown to prove content preservation (R3/R4).
+_COMPARE_METRICS = (
+    ("Total words", "words"),
+    ("Characters", "characters"),
+    ("Paragraphs", "paragraphs"),
+    ("Non-empty paragraphs", "non_empty_paragraphs"),
+    ("Headings", "headings"),
+    ("Captions", "captions"),
+    ("Tables", "tables"),
+    ("Table cells", "table_cells"),
+    ("Page headers", "headers"),
+    ("Page footers", "footers"),
+    ("Estimated pages", "pages_estimate"),
+)
+
+
+def build_source_stats(model: DocumentModel, structure: StructureMap) -> dict:
+    """F200: 'before' stats of the raw user document.
+
+    Snapshot before any edits or formatting are applied so the audit can
+    prove content was preserved (R3) and only structure/formatting changed.
+    """
+    texts = [p.text for p in model.paragraphs] + [
+        c.text for t in model.tables for row in t.rows for c in row
+    ]
+    words = _word_count(texts)
+    return {
+        "title": model.metadata.title,
+        "words": words,
+        "characters": sum(len(t or "") for t in texts),
+        # Content-preservation metric: whitespace is formatting, not content, so
+        # double-space/spacing fixes must never move this number (R3-aware).
+        "characters_no_ws": sum(len("".join((t or "").split())) for t in texts),
+        "paragraphs": len(model.paragraphs),
+        "non_empty_paragraphs": sum(1 for p in model.paragraphs if p.text.strip()),
+        "headings": sum(1 for c in structure.classifications.values() if c.is_heading),
+        "captions": sum(1 for c in structure.classifications.values() if c.is_caption),
+        "tables": len(model.tables),
+        "table_cells": sum(len(row) for t in model.tables for row in t.rows),
+        "headers": len(model.headers),
+        "footers": len(model.footers),
+        "pages_estimate": max(1, round(words / _WORDS_PER_PAGE)),
+    }
+
+
 def build_audit_payload(
     model: DocumentModel,
     structure: StructureMap,
@@ -61,6 +106,7 @@ def build_audit_payload(
     output_files: dict[str, str],
     review_decisions: dict | None = None,
     profile: ProfileConfig | None = None,
+    source_stats: dict | None = None,
     elapsed_ms: int = 0,
     peak_memory_bytes: int = 0,
 ) -> dict:
@@ -120,6 +166,9 @@ def build_audit_payload(
         },
         "integrity": integrity.to_json(),
         "output_files": output_files,
+        "source_stats": (
+            build_source_stats(model, structure) if source_stats is None else source_stats
+        ),
         "processing_stats": {
             "paragraphs": len(model.paragraphs),
             "tables": len(model.tables),
@@ -164,6 +213,23 @@ def build_audit_payload(
                     / _WORDS_PER_PAGE
                 ),
             ),
+            "characters": sum(len(p.text or "") for p in model.paragraphs)
+            + sum(
+                len(cell.text or "") for t in model.tables for row in t.rows for cell in row
+            ),
+            "characters_no_ws": sum(
+                len("".join((p.text or "").split())) for p in model.paragraphs
+            )
+            + sum(
+                len("".join((cell.text or "").split()))
+                for t in model.tables
+                for row in t.rows
+                for cell in row
+            ),
+            "non_empty_paragraphs": sum(
+                1 for p in model.paragraphs if p.text.strip()
+            ),
+            "table_cells": sum(len(row) for t in model.tables for row in t.rows),
             "headers": len(model.headers),
             "footers": len(model.footers),
             "elapsed_ms": elapsed_ms,
@@ -331,6 +397,22 @@ def _render_html(payload: dict) -> str:
     )
 
     stats = payload["processing_stats"]
+    source_stats = payload.get("source_stats") or {}
+
+    def _stat(o, key):
+        # "Characters" shows whitespace-excluded content view so formatting-only
+        # fixes (double-space collapses) never look like content changes.
+        return (
+            o.get("characters_no_ws", o.get("characters"))
+            if key == "characters"
+            else o.get(key)
+        )
+
+    compare_rows = "".join(
+        f"<tr><td>{label}</td><td>{_stat(source_stats, key) if source_stats else '—'}</td>"
+        f"<td>{_stat(stats, key)}</td></tr>"
+        for label, key in _COMPARE_METRICS
+    )
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <title>Audit Report — {html_escape(engine['name'])}</title>
@@ -373,6 +455,14 @@ tr.error {{ background: #ffebe9; }}
 <h3>Mismatches</h3>
 <table><tr><th>Kind</th><th>Index</th><th>Expected</th><th>Actual</th></tr>
 {miss_rows or '<tr><td colspan="4">None — content preserved.</td></tr>'}</table>
+
+<h2>Content Preservation (Before vs After)</h2>
+<p>Original document stats captured before editing/formatting (R3: no content
+rewriting); the result keeps the same words and only corrects structure &
+typography.</p>
+<table>
+<tr><th>Metric</th><th>Before</th><th>After</th></tr>
+{compare_rows or '<tr><td colspan="3">No comparison available.</td></tr>'}</table>
 
 <h2>Detected Structure</h2>
 <table><tr><th>Heading / Element</th><th>Type</th><th>Confidence</th></tr>

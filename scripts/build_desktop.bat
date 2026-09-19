@@ -45,7 +45,7 @@ goto :done
 echo Compiling installer with Inno Setup...
 "%ISCC_EXE%" packaging\circuit-networks.iss
 if errorlevel 1 goto :fail
-echo Installer ready: release\CircuitNetworks-Setup-0.2.1.exe
+echo Installer ready: release\CircuitNetworks-Setup-0.3.0.exe
 goto :done
 
 :fail

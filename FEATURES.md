@@ -120,6 +120,11 @@ Produce:
 - fingerprints
 - mismatch locations if any
 
+> UI content view: the Compare panel measures **Total words** and **Characters**
+> excluding whitespace, so formatting-only fixes (double-space collapse, line
+> spacing, indentation) never move the numbers and never look like content
+> changes (R3). Hard raw counts remain inside the integrity verification.
+
 ### F010 — Audit Report
 
 Generate machine-readable JSON and human-readable HTML.
@@ -268,7 +273,7 @@ A two-pane editor where:
   keystroke
 - **right pane**: per-paragraph editing (manual text change + role select) with
   inline warnings showing both an Auto-fix button (for supported rules) and full
-  manual control (R22 / R23 neumorphism UI)
+  manual control (Light Premium UI — R22)
 
 Constraints:
 - edits are **declared** and cumulative — the editor submits its full current

@@ -181,7 +181,7 @@ export default function DocEditor({
                           )}
                         >
                           <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} />
-                          <span className="max-w-[220px] truncate">{issue.message}</span>
+                          <span className="max-w-[220px] min-w-0 truncate">{issue.message}</span>
                           {fix && (
                             <button
                               onClick={() => onChange(idx, fix)}

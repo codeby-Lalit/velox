@@ -4,9 +4,9 @@ import { cn } from "../../lib/utils";
 
 const variants = {
   primary:
-    "text-white bg-gradient-to-r from-aqua-400 via-iris-400 to-iris-400 shadow-glow hover:brightness-110",
+    "text-ink-950 bg-gradient-to-r from-aqua-400 via-iris-400 to-iris-400 hover:brightness-110",
   ghost:
-    "text-slate-300 border border-line bg-white/[0.03] hover:bg-white/[0.07] hover:text-white",
+    "text-slate-400 border border-line bg-white/60 hover:bg-white hover:text-ink-900",
   outline:
     "text-slate-300 border border-aqua-400/40 bg-aqua-400/5 hover:bg-aqua-400/10 hover:text-aqua-300",
   danger:
@@ -27,7 +27,7 @@ const Button = forwardRef(({ className, variant = "ghost", size = "md", children
     ref={ref}
     whileHover={{ scale: 1.02 }}
     whileTap={{ scale: 0.97 }}
-    transition={{ type: "spring", stiffness: 400, damping: 22 }}
+    transition={{ type: "spring", stiffness: 400, damping: 40 }}
     className={cn(
       "inline-flex items-center justify-center rounded-xl font-medium tracking-tight",
       "disabled:pointer-events-none disabled:opacity-45",

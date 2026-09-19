@@ -1,12 +1,14 @@
 """Validation thresholds and engine-wide constants.
 
-Thresholds follow INTRACTION.md section 5 but remain configurable per profile.
+Trust boundary: a classification ABOVE AUTO_THRESHOLD is trusted (never
+flagged for review, auto-applied). At or below it the classification needs
+human review (manual).
 """
 
 from __future__ import annotations
 
-AUTO_THRESHOLD = 0.90
-REVIEW_THRESHOLD = 0.70
+AUTO_THRESHOLD = 0.60
+REVIEW_THRESHOLD = 0.60
 
 REASON_CODES = {
     "title_position",

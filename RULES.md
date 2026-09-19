@@ -257,37 +257,35 @@ The packaging MUST enforce:
 The packaging pipeline itself is part of the Definition of Done. The produced
 artifact must run without a development machine, build tools or internet.
 
-## R22 — Dark Neumorphism UI (Mandatory Design System)
+## R22 — Light Premium Theme (Mandatory Design System)
 
-The UI MUST use **dark neumorphism** for control surfaces. This is a
-non-negotiable design rule for all future UI work:
+The UI MUST use the approved light "manuscript studio" design — calm,
+publication-grade surfaces, not dark consoles.
 
-- Surface background: flat **#121212 → #1a1a1a** gradients on `#05070d` canvas.
-- **No borders** on controls — shape is conveyed by soft dual shadows:
-  - light shadow top-left (e.g. `#232323`/`#222222`),
-  - dark shadow bottom-right (e.g. `#0a0a0a`/`#0b0b0b`).
-- **Raised** controls use outward dual shadows; **pressed/active** controls use
-  inset dual shadows.
-- Accent colors (mint/aqua/iris) are reserved for status, primary actions and
-  focus, never as surface fills.
+- Base: off-white paper surfaces with misty blue / pale lavender tone; text on
+  bright surfaces uses deep indigo ink.
+- Depth comes from soft frosted/glass layers and fine hairlines — no heavy
+  borders on cards; no dark #121212 canvas.
+- Neon/iris accents are reserved for status, primary actions and focus, never
+  as surface fills.
+- Pitch stays premium and quiet: no gimmicks, no decorative noise that blocks
+  reading or clicking.
+- Utility classes in `frontend/src/index.css` (raised/inset/chip) are reused
+  for control width — inventing new shadow schemes is not required.
 
-Utility classes (`neu-raised`, `neu-raised-sm`, `neu-inset`, `neu-inset-sm`,
-`neu-chip`, `neu-base`) are defined in `frontend/src/index.css` — reuse them
-instead of inventing new shadow schemes.
+The earlier "dark neumorphism" rule is retired.
 
-## R23 — Motion & Animation (Mandatory)
+## R23 — Motion: Subtle, Never Gimmicky (Mandatory)
 
-All interactive elements MUST feel tactile, using **Framer Motion** springs:
+Interaction motion stays minimal and tactile (it follows, never leads):
 
-- `whileHover`: scale `1.02`
-- `whileTap`: scale `0.98`
-- spring transitions: stiffness `300`, damping `20`
-- list/step entrances may stagger at 0.04–0.08 s
-- avoid long linear tweens for buttons/cards; keep motion subtle (a UI is
-  functional first, decorative second)
+- Hover/active feedback only: small scale (1.01–1.02) and short springs.
+- List/steps may stagger entrances at 0.04–0.06 s; nothing decorative loops.
+- No perpetual float/pulse/rainbow effects in the working UI; effects are
+  decoration, not behavior (see R29).
 
-New floating "editor / history" surfaces should reuse `neu-raised`/`neu-inset`
-classes so the whole app stays visually consistent.
+Built with Framer Motion springs; keep them short (stiffness ~300, low
+damping) so the light theme feels crisp.
 
 ## R24 — Human Edits Are Declared, Never Silent
 

@@ -70,7 +70,7 @@ function EditRow({ el, override, inlineWarnings, onChange }) {
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      transition={{ type: "spring", stiffness: 300, damping: 36 }}
       className={cn("neu-raised rounded-3xl p-4", edited && "ring-1 ring-amber-400/40")}
     >
       <button

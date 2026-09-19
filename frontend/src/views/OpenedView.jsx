@@ -29,13 +29,13 @@ export default function OpenedView({
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <button
           onClick={onBack}
-          className="neu-raised-sm inline-flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 hover:text-white"
+          className="neu-raised-sm inline-flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 hover:text-ink-900"
           aria-label="Back"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold text-white">{filename}</p>
+          <p className="truncate text-[15px] font-semibold text-ink-900">{filename}</p>
           <p className="flex items-center gap-2 text-xs text-slate-500">
             <FolderOpen className="h-3 w-3" /> Circuit Networks .velox document
           </p>

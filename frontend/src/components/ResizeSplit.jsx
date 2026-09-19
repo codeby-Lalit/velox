@@ -20,7 +20,7 @@ export default function ResizeSplit({
       ? controlledRatio
       : dragRatio !== null
         ? dragRatio
-        : 0.38;
+        : 0.55;
 
   const down = useCallback(
     (e) => {
