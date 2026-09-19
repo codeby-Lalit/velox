@@ -344,6 +344,38 @@ A Windows named mutex plus a free-port scan keep relaunches (incl. installer
 [Run] hook and desktop-icon opens) crash-free: a second instance simply opens
 the running app and exits 0 (R27).
 
+### F118 — Auto-Fix All (Formatting-Only, Content-Safe) (P1)
+
+One-click resolution for the safe, formatting-only fixable rules:
+- `double_space` — collapses duplicate spaces (whitespace-only; words identical)
+- `spacing_mismatch` — applies the profile line spacing as a formatting override
+- `metadata_missing` — patches the document title in docProps (never body text)
+
+Fixes are declared edits (R24): integrity still passes only for declared
+changes, and no manuscript word is ever rewritten (R3).
+
+### F119 — Whitespace-Excluded Content Metrics (P1)
+
+The Compare panel's **Characters** metric excludes whitespace entirely, so
+formatting-only fixes (double-space collapse, line spacing, indentation) never
+move the numbers and never look like content changes (R3). Hard raw counts
+stay inside integrity verification (F009).
+
+### F120 — 60% Trust Boundary (P1)
+
+The classification trust boundary (previously 0.70/0.90) is a single **0.60**
+for both `AUTO_THRESHOLD` and `REVIEW_THRESHOLD`:
+- confidence > 0.60 → trusted (deterministic, no review nag)
+- confidence ≤ 0.60 → manual low-confidence finding, always surfaced (R5)
+Thresholds remain per-profile configurable.
+
+### F121 — Persistent Metadata Title Patch (P1)
+
+The `metadata_missing` title patch survives:
+- later applies to the same job (stored in `job.json`)
+- opening the `.velox` document again (carried in `velox/manifest.json`)
+So once fixed, it stays fixed across re-audits and resumes (R14/F111).
+
 ## P2 — Advanced Features
 
 ### F201 — Visual Layout Analysis

@@ -53,6 +53,10 @@ The app runs at `127.0.0.1:8000` — all processing happens locally; nothing lea
 | F115 | Professional publication checks (24 rules): structure gaps, placeholders, double spaces, font/size/indent/align/spacing vs profile, margin/page-size vs DOCX sections + accuracy score | **Done** |
 | F116 | Unified split-pane IDE: issues pane + inline document editor with live optimizations, resizable divider, hover deep-linking, Apply Fix chips, background re-audit, Apply & re-scan | **Done** |
 | F117 | Desktop single-instance guard + free-port fallback (second launch reuses the running app, never crashes) | **Done** |
+| F118 | **Auto-Fix All** resolves `double_space`, `spacing_mismatch` (line spacing) and `metadata_missing` (title patch) — formatting-only, no words changed | **Done** |
+| F119 | Whitespace-excluded **Characters** content metric — formatting-only fixes never move content numbers (R3) | **Done** |
+| F120 | 60% trust boundary — 0.6–0.9 classifications trusted, only ≤0.60 stays manual (R5) | **Done** |
+| F121 | Metadata title patch persists across later applies and `.velox` reopen (R14/F111) | **Done** |
 | R3 | Content never rewritten — integrity verified (declared edits only) | **Done** |
 | R11 | Path-traversal-safe upload isolation + file size cap | **Done** |
 | R13 | Linear O(n) audits + 400+ page stress-tested (unstructured, tables, no-heading) | **Done** |
@@ -71,6 +75,7 @@ The app runs at `127.0.0.1:8000` — all processing happens locally; nothing lea
 - Before/After (F104): two-column comparison of detected source style vs formatted target style
 - Review queue: accept, change type, reject-to-paragraph, then reprocess with decisions
 - **Editor (F110):** two-pane side-by-side — live preview updates as you type; inline warnings with one-click Auto-fix *and* full manual text + role editing; commit message; delta list for the last round
+- **Auto-Fix All (F118/F119/F121):** one click fixes double spaces, line-spacing mismatches and the missing doc-title in a single re-audit; the Compare panel proves content is untouched — words match and whitespace-free Characters are equal
 - **History (F111):** git-like version trail with per-version diffs; select any version and Restore (append-only, R25)
 - **Deliverables (F112):** primary `*_velox.docx` download (history embedded, opens in Word too), plain DOCX, audit JSON/HTML; "Open .velox" restores full history from any machine/temp; "Resume editing / Restore" re-processes the embedded original deterministically (R14)
 - SHA-256 fingerprint panel + download bar

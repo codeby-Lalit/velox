@@ -55,6 +55,10 @@ Formatting operations must NOT silently change:
 
 If a transformation could change content, stop and flag it.
 
+Auto-fixable presentation changes (line spacing, whitespace/duplicate-space
+collapse, docProps title patch) touch only layout/metadata — never body text —
+and must be recorded as declared edits (R24).
+
 ## R4 — Integrity Verification
 
 Every formatted output should be independently compared with its source.
@@ -70,6 +74,10 @@ At minimum compare:
 Use cryptographic fingerprints where appropriate.
 
 A successful output should contain an explicit integrity status.
+
+The user-facing content view (Compare panel) reports **Total words** and
+**Characters** excluding whitespace, so formatting-only fixes never look like
+content changes; raw counts remain part of the integrity comparison above.
 
 ## R5 — No Silent Guessing
 
